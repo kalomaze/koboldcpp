@@ -1754,6 +1754,17 @@ def main(launch_args,start_server=True):
 
     if start_server:
         print(f"Please connect to custom endpoint at {epurl}")
+
+        # Check if nohup.out exists and retrieve the quick tunnel link if so; for Google Colab users
+        if os.path.exists("nohup.out"):
+            with open("nohup.out", "r") as file:
+                lines = file.readlines()
+                for i, line in enumerate(lines):
+                    if "Your quick Tunnel has been created!" in line and i+1 < len(lines):
+                        retrieved_link = lines[i+1].split("|")[1].strip()
+                        print("\nKobold API Link:", retrieved_link, "\n")
+                        break
+
         asyncio.run(RunServerMultiThreaded(args.host, args.port, embedded_kailite))
     else:
         print(f"Server was not started, main function complete. Idling.")
