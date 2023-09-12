@@ -1753,11 +1753,11 @@ def main(launch_args,start_server=True):
         horde_thread.start()
 
     if start_server:
-        if not os.path.exists("/content/koboldcpp/"): # Print statement for users outside of Google Colab
+        if not os.path.exists("/content/koboldcpp/nohup.out"): # Print statement for users outside of Google Colab
             print(f"Please connect to custom endpoint at {epurl}")
         else:  # Google Colab print statements
             print(f"Local host (not the Public Link): {epurl}")
-            with open("nohup.out", "r") as file:
+            with open("/content/koboldcpp/nohup.out", "r") as file:
                 lines = file.readlines()
                 for i, line in enumerate(lines):
                     if "Your quick Tunnel has been created!" in line and i+1 < len(lines):
