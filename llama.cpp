@@ -5129,6 +5129,45 @@ void llama_sample_top_p(struct llama_context * ctx, llama_token_data_array * can
     }
 }
 
+//
+// currently forced to dynamic temp scaling
+//
+
+
+void llama_sample_temp(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
+    const int64_t t_start_sample_us = ggml_time_us();
+
+    // Calculate softmax for the largest logit (i.e., the first one since they're sorted)
+    float max_l = candidates_p->data[0].logit;
+    float sum_exp = 0.0f;
+    for (size_t i = 0; i < candidates_p->size; ++i) {
+        sum_exp += expf(candidates_p->data[i].logit - max_l);
+    }
+    float prob_max_token_before_temp = expf(max_l - max_l) / sum_exp;
+    
+    // Dynamic temperature adjustment based on top token probability
+    const float minTemp = 0.1f;
+    const float maxTemp = 1.5f;
+    const float k = 2.0f;  // Example value, can be adjusted
+    float dynamic_temp = minTemp + (maxTemp - minTemp) * (1 - powf(prob_max_token_before_temp, k));
+
+    // Print out the dynamically calculated temperature
+    printf("Dynamically calculated temperature for this token: %f\n", dynamic_temp);
+
+    // Apply the dynamically calculated temperature scaling
+    for (size_t i = 0; i < candidates_p->size; ++i) {
+        candidates_p->data[i].logit /= dynamic_temp;
+    }
+
+    if (ctx) {
+        ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
+    }
+}
+
+void llama_sample_temperature(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
+    llama_sample_temp(ctx, candidates_p, temp);
+}
+
 void llama_sample_tail_free(struct llama_context * ctx, llama_token_data_array * candidates, float z, size_t min_keep) {
     if (z >= 1.0f || candidates->size <= 2) {
         return;
@@ -5252,22 +5291,6 @@ void llama_sample_typical(struct llama_context * ctx, llama_token_data_array * c
     if (ctx) {
         ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
     }
-}
-
-void llama_sample_temp(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
-    const int64_t t_start_sample_us = ggml_time_us();
-
-    for (size_t i = 0; i < candidates_p->size; ++i) {
-        candidates_p->data[i].logit /= temp;
-    }
-
-    if (ctx) {
-        ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
-    }
-}
-
-void llama_sample_temperature(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
-    llama_sample_temp(ctx, candidates_p, temp);
 }
 
 void llama_sample_repetition_penalty(struct llama_context * ctx, llama_token_data_array * candidates, const llama_token * last_tokens, size_t last_tokens_size, float penalty) {
