@@ -5133,8 +5133,7 @@ void llama_sample_top_p(struct llama_context * ctx, llama_token_data_array * can
 // currently forced to dynamic temp scaling
 //
 
-
-void llama_sample_temp(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
+void llama_sample_greedy_dynamic_temp(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
     const int64_t t_start_sample_us = ggml_time_us();
 
     // Calculate softmax for the largest logit (i.e., the first one since they're sorted)
@@ -5164,8 +5163,20 @@ void llama_sample_temp(struct llama_context * ctx, llama_token_data_array * cand
     }
 }
 
+void llama_sample_temp(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
+    const int64_t t_start_sample_us = ggml_time_us();
+
+    for (size_t i = 0; i < candidates_p->size; ++i) {
+        candidates_p->data[i].logit /= temp;
+    }
+
+    if (ctx) {
+        ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
+    }
+}
+
 void llama_sample_temperature(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
-    llama_sample_temp(ctx, candidates_p, temp);
+    llama_sample_greedy_dynamic_temp(ctx, candidates_p, temp);
 }
 
 void llama_sample_tail_free(struct llama_context * ctx, llama_token_data_array * candidates, float z, size_t min_keep) {
