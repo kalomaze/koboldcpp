@@ -5143,15 +5143,21 @@ void llama_sample_greedy_dynamic_temp(struct llama_context * ctx, llama_token_da
         sum_exp += expf(candidates_p->data[i].logit - max_l);
     }
     float prob_max_token_before_temp = expf(max_l - max_l) / sum_exp;
+
+    // Print out the probability of the token with the highest logit before temperature scaling [TEMPORARY]
+    printf("Probability of the most likely token before temperature scaling: %f\n", prob_max_token_before_temp);
     
     // Dynamic temperature adjustment based on top token probability
-    const float minTemp = 0.1f;
+    const float minTemp = 0.00390625f; //cannot be zero else div0, this is 1/256
     const float maxTemp = 1.5f;
     const float k = 2.0f;  // Example value, can be adjusted
-    float dynamic_temp = minTemp + (maxTemp - minTemp) * powf(1 - prob_max_token_before_temp, k);
+    float dynamic_temp = minTemp + (maxTemp - minTemp) * (1 - powf(prob_max_token_before_temp, k));
 
     // Print out the dynamically calculated temperature
     printf("Dynamically calculated temperature for this token: %f\n", dynamic_temp);
+    printf("The minTemp: %f\n", minTemp);
+    printf("The maxTemp: %f\n", maxTemp);
+    printf("The k multiplier: %f\n", k);
 
     // Apply the dynamically calculated temperature scaling
     for (size_t i = 0; i < candidates_p->size; ++i) {
