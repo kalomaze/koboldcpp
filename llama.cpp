@@ -5148,7 +5148,7 @@ void llama_sample_greedy_dynamic_temp(struct llama_context * ctx, llama_token_da
     const float minTemp = 0.1f;
     const float maxTemp = 1.5f;
     const float k = 2.0f;  // Example value, can be adjusted
-    float dynamic_temp = minTemp + (maxTemp - minTemp) * (1 - powf(prob_max_token_before_temp, k));
+    float dynamic_temp = minTemp + (maxTemp - minTemp) * powf(prob_max_token_before_temp, k);
 
     // Print out the dynamically calculated temperature
     printf("Dynamically calculated temperature for this token: %f\n", dynamic_temp);
