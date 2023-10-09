@@ -5157,16 +5157,28 @@ void llama_sample_greedy_dynamic_temp(struct llama_context * ctx, llama_token_da
     
     // Dynamic temperature adjustment based on top token probability
 
-    float minTemp = 1.0F; //cannot be zero else div0, this is 1/256
-    float maxTemp = 666.0F;
-    float k = 1.0F;
+    float minTemp = 1.0F; //PLACEHOLDER VALUES
+    float maxTemp = 666.0F; //PLACEHOLDER VALUES
+    float k = 1.0F; //PLACEHOLDER VALUES
     float buffer = 0.001F; // this code is hot garbage I'm sorry
     float sigmoidCenterPoint = 0.5F;
 
-    if (temp >= 1.94 - buffer) { /// special param; placeholder for proper ui integration.
+    if (temp >= 1.96 - buffer) { /// special param; placeholder for proper ui integration 
+        minTemp = 0.00390625F; //cannot be zero else div0, this is 1/256
+        maxTemp = 1.0F;
+        k = 10.0F;
+        sigmoidCenterPoint = 0.5F;
+    }
+    else if (temp >= 1.95 - buffer) { /// special param; placeholder for proper ui integration 
+        minTemp = 0.00390625F; //cannot be zero else div0, this is 1/256
+        maxTemp = 3.0F;
+        k = 10.0F;
+        sigmoidCenterPoint = 0.5F;
+    }
+    else if (temp >= 1.94 - buffer) { /// special param; placeholder for proper ui integration.
         minTemp = 0.00390625F; //cannot be zero else div0, this is 1/256
         maxTemp = 2.0F;
-        k = 10.0F;  // Example value, can be adjusted
+        k = 10.0F;
         sigmoidCenterPoint = 0.5F;
     }
     else if (temp >= 1.93 - buffer) { /// special param; placeholder for proper ui integration 
@@ -5209,7 +5221,7 @@ void llama_sample_temp(struct llama_context * ctx, llama_token_data_array * cand
 }
 
 void llama_sample_temperature(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
-    if (temp >= 1.929 && temp <= 1.941) {
+    if (temp >= 1.929 && temp <= 1.971) {
         llama_sample_greedy_dynamic_temp(ctx, candidates_p, temp);
     } else {
         llama_sample_temp(ctx, candidates_p, temp);
