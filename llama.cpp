@@ -5136,22 +5136,49 @@ void llama_sample_top_p(struct llama_context * ctx, llama_token_data_array * can
 void llama_sample_greedy_dynamic_temp(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
     const int64_t t_start_sample_us = ggml_time_us();
 
-    // Calculate softmax for the largest logit (i.e., the first one since they're sorted)
+    // Ensure that candidates are sorted
+    if (!candidates_p->sorted) {
+        // You might want to handle this situation, maybe by calling the softmax sampler or returning an error.
+        throw std::runtime_error("Candidates are not sorted!");
+    }
+
+    // Calculate softmax for the largest logit
     float max_l = candidates_p->data[0].logit;
     float sum_exp = 0.0f;
     for (size_t i = 0; i < candidates_p->size; ++i) {
         sum_exp += expf(candidates_p->data[i].logit - max_l);
     }
-    float prob_max_token_before_temp = expf(max_l - max_l) / sum_exp;
+
+    // Since expf(0) = 1, we can directly use 1.0f for the numerator
+    float prob_max_token_before_temp = 1.0f / sum_exp;
 
     // Print out the probability of the token with the highest logit before temperature scaling [TEMPORARY]
     printf("Probability of the most likely token before temperature scaling: %f\n", prob_max_token_before_temp);
     
     // Dynamic temperature adjustment based on top token probability
-    const float minTemp = 0.00390625f; //cannot be zero else div0, this is 1/256
-    const float maxTemp = 1.5f;
-    const float k = 2.0f;  // Example value, can be adjusted
-    float dynamic_temp = minTemp + (maxTemp - minTemp) * powf(1 - prob_max_token_before_temp, k);
+
+    float minTemp = 1.0F; //cannot be zero else div0, this is 1/256
+    float maxTemp = 666.0F;
+    float k = 1.0F;
+    float buffer = 0.001F; // this code is hot garbage I'm sorry
+    float sigmoidCenterPoint = 0.5F;
+
+    if (temp >= 1.94 - buffer) { /// special param; placeholder for proper ui integration.
+        minTemp = 0.00390625F; //cannot be zero else div0, this is 1/256
+        maxTemp = 2.0F;
+        k = 10.0F;  // Example value, can be adjusted
+        sigmoidCenterPoint = 0.5F;
+    }
+    else if (temp >= 1.93 - buffer) { /// special param; placeholder for proper ui integration 
+        minTemp = 0.00390625F; //cannot be zero else div0, this is 1/256
+        maxTemp = 1.5F;
+        k = 10.0F;
+        sigmoidCenterPoint = 0.5F;
+    }
+
+    float dynamic_temp = maxTemp - (maxTemp - minTemp) / (1 + expf(-k * (prob_max_token_before_temp - sigmoidCenterPoint)));
+    
+    /// float dynamic_temp = minTemp + (maxTemp - minTemp) * powf(1 - prob_max_token_before_temp, k);
 
     // Print out the dynamically calculated temperature
     printf("Dynamically calculated temperature for this token: %f\n", dynamic_temp);
@@ -5182,7 +5209,11 @@ void llama_sample_temp(struct llama_context * ctx, llama_token_data_array * cand
 }
 
 void llama_sample_temperature(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
-    llama_sample_greedy_dynamic_temp(ctx, candidates_p, temp);
+    if (temp >= 1.929 && temp <= 1.941) {
+        llama_sample_greedy_dynamic_temp(ctx, candidates_p, temp);
+    } else {
+        llama_sample_temp(ctx, candidates_p, temp);
+    }
 }
 
 void llama_sample_tail_free(struct llama_context * ctx, llama_token_data_array * candidates, float z, size_t min_keep) {
