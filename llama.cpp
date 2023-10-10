@@ -5129,10 +5129,6 @@ void llama_sample_top_p(struct llama_context * ctx, llama_token_data_array * can
     }
 }
 
-//
-// currently forced to dynamic temp scaling
-//
-
 void llama_sample_greedy_dynamic_temp(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
     const int64_t t_start_sample_us = ggml_time_us();
 
@@ -5175,8 +5171,8 @@ void llama_sample_greedy_dynamic_temp(struct llama_context * ctx, llama_token_da
 
     // Ensure that candidates are sorted
     if (!candidates_p->sorted) {
-        // You might want to handle this situation, maybe by calling the softmax sampler or returning an error.
-        throw std::runtime_error("Candidates are not sorted!");
+        llama_sample_softmax(ctx, candidates_p);
+        printf("\n------\nRUNNING SOFTMAX FUNCTION NOW BECAUSE FOR SOME REASON IT WASN'T ALREADY SORTED, PLEASE LET KALOMAZE KNOW IF YOU SEE THIS\n------\n")
     }
 
     // Calculate softmax for the largest logit
