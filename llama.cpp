@@ -5172,7 +5172,7 @@ void llama_sample_greedy_dynamic_temp(struct llama_context * ctx, llama_token_da
     // Ensure that candidates are sorted
     if (!candidates_p->sorted) {
         llama_sample_softmax(ctx, candidates_p);
-        printf("\n------\nRUNNING SOFTMAX FUNCTION NOW BECAUSE FOR SOME REASON IT WASN'T ALREADY SORTED, PLEASE LET KALOMAZE KNOW IF YOU SEE THIS\n------\n")
+        printf("\n------\nRUNNING SOFTMAX FUNCTION NOW BECAUSE FOR SOME REASON IT WASN'T ALREADY SORTED, PLEASE LET KALOMAZE KNOW IF YOU SEE THIS\n------\n");
     }
 
     // Calculate softmax for the largest logit
