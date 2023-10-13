@@ -5127,6 +5127,97 @@ void llama_sample_top_p(struct llama_context * ctx, llama_token_data_array * can
     if (ctx) {
         ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
     }
+
+}
+
+void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
+    const int64_t t_start_sample_us = ggml_time_us();
+
+    llama_sample_softmax(ctx, candidates_p);
+
+    // Calculate softmax for the largest logit
+    float max_l = candidates_p->data[0].logit;
+    float sum_exp = 0.0f;
+    for (size_t i = 0; i < candidates_p->size; ++i) {
+        sum_exp += expf(candidates_p->data[i].logit - max_l);
+    }
+
+    float minTemp;
+    float maxTemp;
+
+    std::ifstream infile("DynaTemp.txt");
+    if (!infile.good()) {
+        // File doesn't exist, create it with default values
+        std::ofstream outfile("DynaTemp.txt");
+        outfile << "minTemp = 0.0\n";
+        outfile << "maxTemp = 2.0\n";
+        outfile.close();
+
+        minTemp = 0.0f;
+        maxTemp = 2.0f;
+
+    } else {
+        // File exists, read the values from it
+        std::string line;
+        while (getline(infile, line)) {
+            std::istringstream iss(line);
+            std::string key, equals;
+            float value;
+            if (iss >> key >> equals >> value) {
+                if (key == "minTemp") minTemp = value;
+                else if (key == "maxTemp") maxTemp = value;
+            }
+        }
+        infile.close();
+    }
+
+    // Since expf(0) = 1, we can directly use 1.0f for the numerator
+    float prob_max_token_before_temp = 1.0f / sum_exp;
+
+    // Print out the probability of the token with the highest logit before temperature scaling
+    printf("\nProbability of the most likely token before temperature scaling: %f\n", prob_max_token_before_temp);
+
+    // Print the top 10 logits probabilities
+    printf("\nTop 10 Logits Probabilities (in percentages):\n");
+    for (size_t i = 0; i < 10 && i < candidates_p->size; ++i) {
+        printf("Token %zu: %f%%\n", i+1, candidates_p->data[i].p * 100.0f);
+    }
+
+    // Calculate entropy of the softmax probabilities
+    float entropy = 0.0f;
+    for (size_t i = 0; i < candidates_p->size; ++i) {
+        float prob = candidates_p->data[i].p;
+        if (prob > 0.0f) { // Ensure no log(0)
+            entropy -= prob * logf(prob);
+        }
+    }
+
+    // Calculate maximum possible entropy
+    float max_entropy = -logf(1.0f / candidates_p->size);
+
+    // Map entropy to dyn_temp, your chosen maxTemp value is used here as the 'max'
+    float dyn_temp = maxTemp * (entropy / max_entropy);
+
+    printf("Your text maxtemp value is: %f\n", maxTemp);
+
+    // Print the variables
+    printf("Entropy: %f\n", entropy);
+    printf("Max Possible Entropy: %f\n", max_entropy);
+    printf("Dynamic Temperature (dyn_temp): %f\n", dyn_temp);
+
+    if (prob_max_token_before_temp == 1.0f) {
+        dyn_temp = 0.0f;
+        printf("RECOMPUTED DYN TEMP: %f\n", dyn_temp);
+    }
+
+    // Apply the dynamically calculated temperature scaling
+    for (size_t i = 0; i < candidates_p->size; ++i) {
+        candidates_p->data[i].logit /= dyn_temp;
+    }
+
+    if (ctx) {
+        ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
+    }
 }
 
 void llama_sample_greedy_dynamic_temp(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
@@ -5169,11 +5260,7 @@ void llama_sample_greedy_dynamic_temp(struct llama_context * ctx, llama_token_da
         infile.close();
     }
 
-    // Ensure that candidates are sorted
-    if (!candidates_p->sorted) {
-        llama_sample_softmax(ctx, candidates_p);
-        printf("\n------\nRUNNING SOFTMAX FUNCTION NOW BECAUSE FOR SOME REASON IT WASN'T ALREADY SORTED, PLEASE LET KALOMAZE KNOW IF YOU SEE THIS\n------\n");
-    }
+    llama_sample_softmax(ctx, candidates_p);
 
     // Calculate softmax for the largest logit
     float max_l = candidates_p->data[0].logit;
@@ -5224,7 +5311,9 @@ void llama_sample_temp(struct llama_context * ctx, llama_token_data_array * cand
 }
 
 void llama_sample_temperature(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
-    if (temp >= 1.99 && temp <= 2.01) {
+    if (temp >= 1.90 && temp <= 1.92) {
+        llama_sample_entropy(ctx, candidates_p, temp);
+    } else if (temp >= 1.99 && temp <= 2.01) {
         llama_sample_greedy_dynamic_temp(ctx, candidates_p, temp);
     } else {
         llama_sample_temp(ctx, candidates_p, temp);
