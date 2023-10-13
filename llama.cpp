@@ -5144,20 +5144,20 @@ void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * c
 
     float minTemp, maxTemp, k, sigmoidCenterPoint;
 
-    std::ifstream infile("DynaTemp.txt");
+    std::ifstream infile("EntropyTemp.txt");
     if (!infile.good()) {
         // File doesn't exist, create it with default values
-        std::ofstream outfile("DynaTemp.txt");
+        std::ofstream outfile("EntropyTemp.txt");
         outfile << "minTemp = 0.0\n";
         outfile << "maxTemp = 2.0\n";
-        outfile << "k = 10.0\n";
+        outfile << "k = 7.0\n";
         outfile << "sigmoidCenterPoint = 0.5\n";
         outfile.close();
 
         // Set default values
         minTemp = 0.0f;
         maxTemp = 2.0f;
-        k = 10.0f;
+        k = 7.0f;
         sigmoidCenterPoint = 0.5f;
 
     } else {
