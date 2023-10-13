@@ -5142,8 +5142,7 @@ void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * c
         sum_exp += expf(candidates_p->data[i].logit - max_l);
     }
 
-    float minTemp;
-    float maxTemp;
+    float minTemp, maxTemp, k, sigmoidCenterPoint;
 
     std::ifstream infile("DynaTemp.txt");
     if (!infile.good()) {
@@ -5151,10 +5150,15 @@ void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * c
         std::ofstream outfile("DynaTemp.txt");
         outfile << "minTemp = 0.0\n";
         outfile << "maxTemp = 2.0\n";
+        outfile << "k = 10.0\n";
+        outfile << "sigmoidCenterPoint = 0.5\n";
         outfile.close();
 
+        // Set default values
         minTemp = 0.0f;
         maxTemp = 2.0f;
+        k = 10.0f;
+        sigmoidCenterPoint = 0.5f;
 
     } else {
         // File exists, read the values from it
@@ -5166,6 +5170,8 @@ void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * c
             if (iss >> key >> equals >> value) {
                 if (key == "minTemp") minTemp = value;
                 else if (key == "maxTemp") maxTemp = value;
+                else if (key == "k") k = value;
+                else if (key == "sigmoidCenterPoint") sigmoidCenterPoint = value;
             }
         }
         infile.close();
@@ -5195,14 +5201,22 @@ void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * c
     // Calculate maximum possible entropy
     float max_entropy = -logf(1.0f / candidates_p->size);
 
-    // Map entropy to dyn_temp, your chosen maxTemp value is used here as the 'max'
-    float dyn_temp = maxTemp * (entropy / max_entropy);
+    // Normalize the entropy
+    float normalized_entropy = entropy / max_entropy;
+
+    // Apply the sigmoid function
+    float sigmoid_output = 1.0f / (1.0f + expf(-k * (normalized_entropy - sigmoidCenterPoint)));
+
+    // Map the sigmoid output to the desired temperature range
+    float dyn_temp = minTemp + (maxTemp - minTemp) * sigmoid_output;
 
     printf("Your text maxtemp value is: %f\n", maxTemp);
 
     // Print the variables
     printf("Entropy: %f\n", entropy);
     printf("Max Possible Entropy: %f\n", max_entropy);
+    printf("Normalized Entropy: %f\n", normalized_entropy);
+    printf("Sigmoid Output: %f\n", sigmoid_output);
     printf("Dynamic Temperature (dyn_temp): %f\n", dyn_temp);
 
     if (prob_max_token_before_temp == 1.0f) {
