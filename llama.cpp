@@ -6222,10 +6222,10 @@ void llama_sample_top_p(struct llama_context * ctx, llama_token_data_array * can
 }
 
 void read_or_write_temp(float* minTemp, float* maxTemp, float* ExponentVal) {
-    std::ifstream infile("EntropyTemp.txt");
+    std::ifstream infile("SamplerTemp.txt");
     if (!infile.good()) {
         // File doesn't exist, create it with default values
-        std::ofstream outfile("EntropyTemp.txt");
+        std::ofstream outfile("SamplerTemp.txt");
         outfile << "minTemp = 0.0\n";
         outfile << "maxTemp = 2.0\n";
         outfile << "ExponentVal = 0.5\n";
@@ -6444,10 +6444,13 @@ void llama_sample_temp(struct llama_context * ctx, llama_token_data_array * cand
 
 void llama_sample_temperature(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
     if (temp >= 1.90 && temp <= 1.92) {
+        llama_sample_greedy_dynamic_temp(ctx, candidates_p, temp);
+    } else if (temp >= 1.83 && temp <= 1.85) {
         llama_sample_entropy(ctx, candidates_p, temp);
     } else if (temp >= 1.99 && temp <= 2.01) {
         llama_sample_gini(ctx, candidates_p, temp);
     } else {
+        // Default sampling method
         llama_sample_temp(ctx, candidates_p, temp);
     }
 }
