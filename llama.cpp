@@ -6228,7 +6228,7 @@ void read_or_write_temp(float* minTemp, float* maxTemp, float* ExponentVal) {
         std::ofstream outfile("SamplerTemp.txt");
         outfile << "minTemp = 0.0\n";
         outfile << "maxTemp = 2.0\n";
-        outfile << "ExponentVal = 0.5\n";
+        outfile << "ExponentVal = 2.0\n";
         outfile.close();
 
         // Set default values

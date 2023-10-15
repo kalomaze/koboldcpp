@@ -1838,7 +1838,7 @@ def main(launch_args,start_server=True):
         print(f"Server was not started, main function complete. Idling.")
 
 if __name__ == '__main__':
-    print("***\nWelcome to KoboldCpp - Version " + KcppVersion) # just update version manually
+    print("***\nWelcome to KoboldCpp (KALO EDITION) - Version " + KcppVersion) # just update version manually
     # print("Python version: " + sys.version)
     parser = argparse.ArgumentParser(description='KoboldCpp Server')
     modelgroup = parser.add_mutually_exclusive_group() #we want to be backwards compatible with the unnamed positional args
