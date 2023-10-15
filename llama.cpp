@@ -5130,35 +5130,20 @@ void llama_sample_top_p(struct llama_context * ctx, llama_token_data_array * can
 
 }
 
-void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
-    const int64_t t_start_sample_us = ggml_time_us();
-
-    llama_sample_softmax(ctx, candidates_p);
-
-    // Calculate softmax for the largest logit
-    float max_l = candidates_p->data[0].logit;
-    float sum_exp = 0.0f;
-    for (size_t i = 0; i < candidates_p->size; ++i) {
-        sum_exp += expf(candidates_p->data[i].logit - max_l);
-    }
-
-    float minTemp, maxTemp, k, sigmoidCenterPoint;
-
+void read_or_write_temp(float* minTemp, float* maxTemp, float* ExponentVal) {
     std::ifstream infile("EntropyTemp.txt");
     if (!infile.good()) {
         // File doesn't exist, create it with default values
         std::ofstream outfile("EntropyTemp.txt");
         outfile << "minTemp = 0.0\n";
         outfile << "maxTemp = 2.0\n";
-        outfile << "k = 7.0\n";
-        outfile << "sigmoidCenterPoint = 0.5\n";
+        outfile << "ExponentVal = 0.5\n";
         outfile.close();
 
         // Set default values
-        minTemp = 0.0f;
-        maxTemp = 2.0f;
-        k = 7.0f;
-        sigmoidCenterPoint = 0.5f;
+        *minTemp = 0.0f;
+        *maxTemp = 2.0f;
+        *ExponentVal = 0.5f;
 
     } else {
         // File exists, read the values from it
@@ -5168,20 +5153,22 @@ void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * c
             std::string key, equals;
             float value;
             if (iss >> key >> equals >> value) {
-                if (key == "minTemp") minTemp = value;
-                else if (key == "maxTemp") maxTemp = value;
-                else if (key == "k") k = value;
-                else if (key == "sigmoidCenterPoint") sigmoidCenterPoint = value;
+                if (key == "minTemp") *minTemp = value;
+                else if (key == "maxTemp") *maxTemp = value;
+                else if (key == "ExponentVal") *ExponentVal = value; // Add this line
             }
         }
         infile.close();
     }
+}
 
-    // Since expf(0) = 1, we can directly use 1.0f for the numerator
-    float prob_max_token_before_temp = 1.0f / sum_exp;
+void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
+    const int64_t t_start_sample_us = ggml_time_us();
 
-    // Print out the probability of the token with the highest logit before temperature scaling
-    printf("\nProbability of the most likely token before temperature scaling: %f\n", prob_max_token_before_temp);
+    llama_sample_softmax(ctx, candidates_p);
+
+    float minTemp, maxTemp, ExponentVal;
+    read_or_write_temp(&minTemp, &maxTemp, &ExponentVal);
 
     // Print the top 10 logits probabilities
     printf("\nTop 10 Logits Probabilities (in percentages):\n");
@@ -5201,14 +5188,16 @@ void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * c
     // Calculate maximum possible entropy
     float max_entropy = -logf(1.0f / candidates_p->size);
 
+    // Guard against division by zero
+    if (max_entropy == 0.0f) {
+        max_entropy = 1.0f; // This ensures that normalized_entropy will be 0 when entropy is 0
+    }
+
     // Normalize the entropy
     float normalized_entropy = entropy / max_entropy;
 
-    // Apply the sigmoid function
-    float sigmoid_output = 1.0f / (1.0f + expf(-k * (normalized_entropy - sigmoidCenterPoint)));
-
-    // Map the sigmoid output to the desired temperature range
-    float dyn_temp = minTemp + (maxTemp - minTemp) * sigmoid_output;
+    // Map the normalized entropy to the desired temperature range using the power function
+    float dyn_temp = minTemp + (maxTemp - minTemp) * powf(normalized_entropy, ExponentVal);
 
     printf("Your text maxtemp value is: %f\n", maxTemp);
 
@@ -5216,13 +5205,51 @@ void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * c
     printf("Entropy: %f\n", entropy);
     printf("Max Possible Entropy: %f\n", max_entropy);
     printf("Normalized Entropy: %f\n", normalized_entropy);
-    printf("Sigmoid Output: %f\n", sigmoid_output);
+    printf("Exponent: %f\n", ExponentVal);
     printf("Dynamic Temperature (dyn_temp): %f\n", dyn_temp);
 
-    if (prob_max_token_before_temp == 1.0f) {
-        dyn_temp = 0.0f;
-        printf("RECOMPUTED DYN TEMP: %f\n", dyn_temp);
+    // Apply the dynamically calculated temperature scaling
+    for (size_t i = 0; i < candidates_p->size; ++i) {
+        candidates_p->data[i].logit /= dyn_temp;
     }
+
+    if (ctx) {
+        ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
+    }
+}
+
+void llama_sample_gini(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
+    const int64_t t_start_sample_us = ggml_time_us();
+
+    llama_sample_softmax(ctx, candidates_p);
+
+    float minTemp, maxTemp, ExponentVal;
+    read_or_write_temp(&minTemp, &maxTemp, &ExponentVal);
+
+    // Print the top 10 logits probabilities
+    printf("\nTop 10 Logits Probabilities (in percentages):\n");
+    for (size_t i = 0; i < 10 && i < candidates_p->size; ++i) {
+        printf("Token %zu: %f%%\n", i+1, candidates_p->data[i].p * 100.0f);
+    }
+
+    // Calculate Gini coefficient of the softmax probabilities
+    float gini = 0.0f;
+    for (size_t i = 0; i < candidates_p->size; ++i) {
+        float prob = candidates_p->data[i].p;
+        gini += prob * prob;
+    }
+
+    gini = 1.0f - gini;  // Invert the Gini coefficient
+
+    // Map the inverted Gini to the desired temperature range using the power function
+    float dyn_temp = minTemp + (maxTemp - minTemp) * powf(gini, ExponentVal);
+
+    printf("Your maxTemp value is: %f\n", maxTemp);
+
+    // Print the variables
+    printf("(Inverted) Gini Coefficient: %f\n", gini);
+    printf("Exponent: %f\n", ExponentVal);
+    printf("Dynamic Temperature (dyn_temp): %f\n", dyn_temp);
 
     // Apply the dynamically calculated temperature scaling
     for (size_t i = 0; i < candidates_p->size; ++i) {
@@ -5328,7 +5355,7 @@ void llama_sample_temperature(struct llama_context * ctx, llama_token_data_array
     if (temp >= 1.90 && temp <= 1.92) {
         llama_sample_entropy(ctx, candidates_p, temp);
     } else if (temp >= 1.99 && temp <= 2.01) {
-        llama_sample_greedy_dynamic_temp(ctx, candidates_p, temp);
+        llama_sample_gini(ctx, candidates_p, temp);
     } else {
         llama_sample_temp(ctx, candidates_p, temp);
     }
