@@ -5143,7 +5143,7 @@ void read_or_write_temp(float* minTemp, float* maxTemp, float* ExponentVal) {
         // Set default values
         *minTemp = 0.0f;
         *maxTemp = 2.0f;
-        *ExponentVal = 0.5f;
+        *ExponentVal = 2.0f;
 
     } else {
         // File exists, read the values from it
