@@ -5,8 +5,8 @@ Kobold Lite WebUI is a standalone WebUI for use with KoboldAI United, AI Horde, 
 It requires no dependencies, installation or setup.
 Just copy this single static HTML file anywhere and open it in a browser, or from a webserver.
 Please go to https://github.com/LostRuins/lite.koboldai.net for updates on Kobold Lite.
-Kobold Lite is under the AGPL v3.0 License for the purposes of koboldcpp. Please do not remove this line.
-Current version: 74
+Kobold Lite is under the AGPL v3.0 License unless otherwise exempted. Please do not remove this line.
+Current version: 78
 -Concedo
 -->
 
@@ -1179,7 +1179,7 @@ Current version: 74
 		}
 		.scenariogrid
 		{
-			height: 330px;
+			height: 260px;
     		overflow-y: auto;
 			margin-top: 4px;
 			padding: 8px;
@@ -1192,7 +1192,7 @@ Current version: 74
 		{
 			padding: 4px 12px;
 			width: 100%;
-			height: 120px;
+			height: 160px;
 			color: #b7e2ff;
 			overflow-y: auto;
 		}
@@ -1754,14 +1754,14 @@ Current version: 74
 		const favivon_normal = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAEtQTFRFAAAA+XJ0l09PsVdXcTw842hqw2hmTi4vMCQlb2eUgWtl+tGpBAMDEw4NPCkoFw8PJBgXt5WBVkxW4Nvf7Lia3Z+MpJnAZ05HnJOTYIS/NAAAABl0Uk5TAv////v//vT9//3/Nna08qf+///////a/hkcROQAAAGUSURBVHiclZLRcoQgDEULBAKoIKjI/39pL4i7nbUPbcYZwJyES5Kvr3/YvIx1nn9zL4G4EwuTXX7xs4QFGEklOT6SBENERguhsWHFD2AVRhL8IEgawY8b5L4fYtg+TSl8+NMEu4G2P34Q67r6I+37dLyBfU/4PY/sInG2MR8vIHG01h9mHfq1hUUQtwYcLEcp+ltmwqutdy5HMwAfc8ExKtVSLEZZW13Jxb4Azq7UHFnFrtGItLliS1UDYOfctm3JhEtlEH5zzpZNDsC63AB1VysY3gqC3C2ytsNW6Q3IjCt91Qr9QK8MiFL4nUEpEyNLYmodxYo3RquVHWUmbbRu0QCbKWwNfil5zYeENrRRqtZrGEQYqdtW8FWHLl4bgZDLFLZdbS/UzP2AEGTufkt3xWSvwzJeh4GxHWD5qlgXOZ/n2ULuC/od4Pk8x9xhCekD0Bqd/DmXgbpEumRgrMPn1K6ecs4pJc/V0nE+x35KtfTJTJufpvPTD2DyNZ3e4wP3zDCHevg+yYvf09PfkHuK7/Vv9g2CjBTdqv3bFgAAAABJRU5ErkJggg==";
 		const compressed_scenario_db = ["XQAAAQCkKgAAAAAAAAA9iIqG1FTp3Td41VnWyuXTp3Lb95KmIEizGvJcmkqrV2FY5cKEeSxCwbqBRjHVjL7PUH9wCoW89dPxjDNZvgp6okMOelpy7_1P6GV-mfJV4jz42_DXqYfET4aYlAT13M95gkcA14f0NLvI_p6B9CyG8EbkhRxsk3uyf_KgTV5kwqzAcr5C4JQ_pJr77GnYCHQI8h6F765-lcqrvw1Xu1GHhcN3lj7s9PhMvLnmGPZbQMrTo5sqPJDzYO6lytxmNSHSXMICpN2kFJB6kqyL5lBxNAH3Au_F_JIC85GqwLXWEy8wZms5KmAdp1s3EA1yabPGqqF0G5RxBp3aXzm7h6QUJPy1qSr6JJAo4fi2gCPaLkdn2pKqNDR1Ww8FA6AVHOyMgCTmmrQxWVYgXY9TdhHKcRcrIsoHNXEeWSqMGJNQ8lzVfc26teZdBdPLhqcClG8wUThPtyobTMz8Fgom88nTv7VT-mZhwH9Nc4ghoCL8dMR0Skf-EYDZ0Uvz03_GTn5OB8yuX6FmsD1XQJv_CKBAUHeDKd7n_bC7WOnlAINHPX9Bh5TnwjeLYO-UAL2ClMJTFzR-k2cjVHGQnLB7hZ48L1nToRG1gSVN7dP3Zysw7riwIxnfG4MMNXtEbHyxrCvz2zRTUEqbHLrwIzdJRpJ5s5XfTlY1CPZkQCwxbA6rrUt27D6a-YDKavbg0hubpViPRYbnEDXr9gL-7in4f_K2cOZdQ26Q--hk0xzEtgBNFI6inHA2nA4LofUpWjl835qg6CUyz9EzQkw0cDgPVjYXehC9oC_3H0U2O9YC-Ah8VpdPdCHUFuaQr7oXgePUub_Be1XQyCA5TaqrJxVxUG2hZA4rOVJHZ_AahfiJN7z6QcVEp-8xf-wHcv1lpWjjNdXFWDqVQZkdOaKf63dtjP35SmC5eCw2_BNX_t-db_FCCAhm2Vn2WI3q4k00p4l_ocCrJIdRID6muBVZQXCzxcRf5m8kcGwrTB-XVS-XSSPZInaBxZjgimOl5bLwJvdMC-HNYtU-yUDjXvDjPraZ_7ZV_-knU1GbHf1BpI9-rNbl_3bbA7KbmL7Q_goV1Clvi6gLYgjbXGQMTFjQEoodZX3fK_bDhVsrA1fWMJMWwfY3ua-j8HNuyRDfhPBpbTK0Gvz5-GWbIRF3v4zwR9HzIjz2frY7luy3ApQ6QJw7K6ITvD80u5VLfpHYReVCLpgs-lvPStklgnGXj3j5vuaH9f-wFohB19vwzRnthvgdplXPQ9jMy3ieb80sELS0WiGD-E2L_HhNXUcpTdeBp3HQFK4QubJOiIeKuZDVR7PxvtwBj26m-pLXLzKc6WqQlt07TsRo_72SlAaZodyyFRXf8636HCAyEHcVEhR6uZ1lDu00BHvsyVe6BdG7zvjNdmLluA0qBJQ9FO3ipHezadlwCPnEBDQAAZRgHKUvRCJNOQH_jcqFLLtmDADXoLvcK8_lN0LEeisA4B1LH0X2x0Q6NqLgngh9M1y_cBEBaazMa_UIZwoL6eZGU0QhlpvysBi1wKDybNcF_uKrIxdQwn8L_QRFHtDn39-hw-GDs_6zbnRlwrBEwrMtAQfc62FLSzGUMAzww-aTGvUuQvP-D9m0r-eDbSATlSsrIYobVUDUdDWsMDUsjKfYOW_Rp0GMjk40BQxcdzjNjLCYaTEN5cMhsWyfTbhIHDP7-wfbvJG7Al7Z-nH2Pa-QXPte687xVanKT0d3Er07vOV9HoI09mtuhxE4g0VaLm4TMqxSMRBX3EB60W1U2sX9sHjAgmwfpUNXRNj03QeJe4cg0pndf-hhKkTsfNQMU_N6-Zt8IrM2xtzFfvKB4BpFyWmaYu_X7bGwgSZjzrBNE10fx001fMr2fmrVy_sj7mW7WhlWXa3N5eMe4pqkA4EawmGzhuIwAqZNmtvnL_N2nt4T4ZyqkAAyXMMKb60UJAXkqLjUisD1bnNt1qD9otg8mGNzQxlaY5Bfm7286vNmjyxGY4UVrn0RV0DSFFb5_NYEW5y5YYxiabWABr8k0ezTM8R_qQ7NxdUOj0qhBKOqGyzyuVgKNnB6-ZzpKVGbB7RYJXwfEtkKNuUc3UWmbwxcsCTuW4TOScqJUh4dA5vlgLjB3-Q79yEMRYB8n6jetkR4z25RkYRXvTxkHIVQd2qr8BchdUcmHsZvG_tXI0-bxx_f_TGyfgi8ol7L5SRfWfOtYHCXSVHOCwnDj7GN4rIrwt3qWRcPkdTMw1RguDZW0eTpCpZyCJH_z3xVfpVh5lgf7Nu4tH-CpFRrOaJc79K1lSuIZs8yvjh5dbYAH4rKQ28OOFRu2MmU7Ko8Of4CECcJMhohFtVW6nTCB48-Pl8owiGM5_2uBJOJRAsyu3fHHbKqKvZ-0kYmN9ypyTAxQjgDiCOE3J1txPiqRRRRSaFZgLPNacdyjGO2y2SpWwzYudx8tEq3tBDAPBCXwWqwefcG__iN5OMRgCIAvr-9qfl2iSaVR5LZ-kBluVoW27o0hIUtgdry03bmUN50ob4hwCz8xVoupcHjI3Cy0nLpgiGixjo4afafQPE_TXJf-NixlWN-cH2a4ZzU6Qc5KKzIciwnt6Hx-iRQzB_uK-pBDjC8boVXolOsFyaqWsoLgkghTo2qCFZuxP2GKzS9wQ5sBWxTMEPGryHxaylpXXmUjlBJ-j9p4vJN9YxjQEbyuTVYy0PxmtDbyh6g_n3Lr09ttCg40hqfWBhCT9P4-uFoAjozUciHQFBfI8t04dKZnobLbVq-f_HJGzUZu5zHRHsPI939tJxODDJxiflfHLwxXjQS2cq9Vj-kvn1pgXAN5unYh8Y7-nqepxc0KkO2v8mU-r8fYFmUFJdZu6HR23P2y7ndsozZEKdUAVay36pmW_gvVQuSA_jzLwXn3Ee2y-A7G-w96bTe82gJG95PsSOt2L6AcuF8mqWL_EVBjIZJMN63T__0UHh9VPDCRTUITwn35t7Z0aGYHnssPVAxXLh7y2LhCaIN0u6lnbiDlKAdKc1-4qYbr1sHORC8tjSG8cjWLkgBcNkFo7rqhKQSNtU1H44aT8ceG08a8cSpze8aC6dMVaz6DxEaFIZ-aRqfqO0QV6ty2-6hrcRVedypt1Twd7UEkXZM5Erjb-_8jq4RzshqXVzKEqPfIYpmtHqkmeJq8BLfc1GT9UGrmPpYO4-K8LM-u7aOpcxcagPn2S3McsWI3a8CWkU9t4g9WEPNH-5s8VqF-3rSmgi5kk40Y7HjEyA-6clhNhl9lbP6hIbf9TKHO9fWwzTz8NieUPNZZPgrBrULggzHXPrfJIxl8eLSrKuD8n2Pbumu2k4ljMV_WIq9qCJ1wPofdIoWHWiz7oV2snLve1CFPUCdAhLkHQ8KpO6xvSi6mKY9WsOhOLxKm92vsWLv-rfM2CW4XUja5arRpGynr7cF9CDuEGWIxkPjOF_5x8ZXg2x1TJcrgvLDO_S4u2zKl2tQGRW4NHU1zF9h_3SQkpbwWH5KOPisP6c8vb5rg_rZ5laFedxQQSpguSq5el9-ddzvlr4C8Q22eDQvwUEO_P6c6VZN5A2QWBGZsJoaZ4gZ8UArmGLxSihBj_5oOdDdUcbUOhGUIWrtYrs4PJKxpnHDFUZaYwIbtnLyAoORKYvq8LgAH0SP57KeeYkZzUGP1f0jkDzAmwV4ZHE0pnZhEo3XkXVuIHc6MXZ-RniZaS_vaoY3Bq6XHrKoWZdLiCoU6aqPc-ZpPnvXmnKHyLLs4e96M1wGKIyT28_VCR6EDRJPxbZ9Ig1kN8TIHCF3tE8y2It5hkz1-zNYT6uw3SDkFSdrV_DRiAVqUhxrQdUPhpD92zVgsWdJR0TZLU7CBLlOuBVwyfmtHMUBL6dIvYie47Kr47nOJ5i2ka8EZGZf-Y8aD6xv6hpBbybU_5oGfYLRG4MiNRhML4u90tQ3hBxBbGYK8sWOzui2UEx0ynB_a8jz8eEs7u_9ylTD1v1f-gC8JYQMNAZIm46pvl2s1X07B8Gf7Laj4aozcWqg8DgC_8aLypoTffyxjWw4Fpd8LWn1fRPsFOdeV0UrS7FNtUakvYq_qxphGu5mNuINIJIMJzgI3giGnyCbr2IrsJ1ITmEGnggLQYes1t3j44v1quvVwQXqHX6HhSnoJlN2IlT5DuZ2kx6-pb68nK62xVJaOS-wDeeJnQ8zzhqJACstuF7g-jidRoJmGc8yChHfCN8ZFOhT0poNQB-Jf5IUZ7aSCXmceYN4VUhmB_w-Db1XZUNHOJqGiTgcT1KzejzNpN49b0QUjcRJiOpEhJp_LzBUiRQSnweOSFrWlTs5Jf9p3wqN9zFYZ_3Xz6IR2klwyLQXc-LbBd1QFwkB17HTYMspUXjrSpJULdQ90OxzbSEafF4RKvgIL4sAU1pCMTa2bVrcUmY2MiECVIbwPNN0CjZeoEAd1dP5FFjlwGG7xUNRO1E20CqHZJ1oqeEur06ZXvPK1zy3SlF-_lKF6eRfNClzR2ERGYqf-zEQwwkPNiMNnURPcdt64pw4kcjTKBIkorum3ruuqJZMitcZx0YiANx7ssy8dMuVteEFFCQnmglgTCsEZTK_xzigPie_f8Q5p1vsJPje5Z2cugsaW-vOXbuOE471n6LuIyoII2dWq0m8H3_8pxlErkZ5E7OY--w3InCuSCv2ubxaZ9AbaNuuyGw49fI3zvRurTYespYO-Aj1FcjDrxqRB3bihJm_u3a56fwnoyOeE0071TY_AlVlq1RYauV4-7L-RAFJZo0wKnPZM9Hs7VB_cCwJ_oPe1y0XBF95agtAQdicj42KdstIlpjWtdGb4LpHgVQI_56G3As0H81-uj47VuBourA2hUay0BpHAvcwbNLyu8OcZB31I6dfy2797wGlrWwAN-Xt3M3CVW9SvIN_GMlg0RB75rUEtgPkR-VPRdPH_Jb19wVoFPPpwjP6cYzVW1U_iRymFKaNpMo4CWFN6t54wshlCVwkfZKbhSP14z74oMKxy-qqt-WKNhkOr1uh_sevNa57iHBnFlHzt_eaZoPNTsCmzqnC4boOlK9o5_hFn8hiw33R3NQC-RD-w1XEl8-hpdZYdCcnexwRYd9sH2LMHySL59Kp_09yIwAE_ukVMDa6Yd9OHrbSCycQNZSI_0fMnF5s9oWTXnsxecDpRKgSWJQIQPUb6dlOdGOT0-MnebivpKgbDxzx52Zr0EMS7aU5eJxEdO9rdiFda8kQk5IeBgr1QcqIFs_1UIp6oQneXgwTlpXXxLHs16ShDG1qkLmDZjb4vrb_Ha2YCBIqid6wVKjec-UwEwWyvfV4UAPFgiNRJN7TdQNRxbSZJ8XWeA2gor9PN5JkMS0l_qGKoke3sbWDsp-G_B0KUjwUBTtPsKRhdnc0JyV_akuZ8jxAmXDDydxOy_EqNMgrDGN_4FuSY7XNLy2OXXJG3bB9a_lxEzdVNPWzM0cijTQFLzIiAKAyWTfwPNagcvgLUAeHxlQ22E0V37-sFwkstvpJ-s8C2yqxQKcv4GfMZOfSYEaZAhiO_y8EXgFknGGwjLB7K3CgvGwBRWWcgx-eqXYs9rAygf_X2_7-rBG_7Rxj3GW957PwwzwZjZDkdRHik8sj0htIkDRAyHo2EsPwObKXK-W32JKUX3VSgiY8AzCUhUUIWwFVVLXEvB1jtU7G7wRaj5_z9QywvgoIqnOTmpm4TTRA0cCJkiYoJcl8BOIHoWuYznL89zWjWy_ZQDKaYAsHugQYXaKI_UaaLV4gVFjDNqZCgqjAFyMjG4qZR64jkaI71mefUaDLLwsqIiLpOWZi8BlvP0YcOVeTyo2mJbq3EXfjXyDvPuZuZ9SAjqwCdLr902yzLm4DdzYRyfPbpt8rGUu-Uw27Ix2oZRe_zj0G_3FdCw0"];
 
-		const storymodels1 = ["erebus","nerys","nerybus","janeway","hermes","airoboros","chrono","llama","wizard","mantis","myth"];
-		const storymodels2 = ["opt","vicuna","manticore","alpaca"];
-		const adventuremodels1 = ["nerys","nerybus","skein","adventure","hermes","airoboros","chrono","llama","wizard","mantis","myth"];
-		const adventuremodels2 = ["erebus","janeway","opt","vicuna","manticore","alpaca"];
-		const chatmodels1 = ["pygmalion-6","pygmalion-v8","hermes","airoboros","chrono","llama","wizard","mantis","myth"];
-		const chatmodels2 = ["pygmalion","janeway","nerys","erebus","nerybus","opt","vicuna","manticore","alpaca"];
-		const instructmodels1 = ["gpt4all","supercot","hermes","airoboros","chrono","wizard","mantis","vicuna","manticore","alpaca","myth"];
-		const instructmodels2 = ["erebus","nerys","nerybus","janeway","opt","llama"];
+		const storymodels1 = ["erebus","nerys","nerybus","janeway","hermes","airoboros","chrono","llama","wizard","mantis","myth","xwin","spicyboros","mlewd","mxlewd"];
+		const storymodels2 = ["opt","vicuna","manticore","alpaca","mistral"];
+		const adventuremodels1 = ["nerys","nerybus","skein","adventure","hermes","airoboros","chrono","llama","wizard","mantis","myth","xwin","spicyboros","mlewd","mxlewd"];
+		const adventuremodels2 = ["erebus","janeway","opt","vicuna","manticore","alpaca","mistral"];
+		const chatmodels1 = ["pygmalion-6","pygmalion-v8","hermes","airoboros","chrono","llama","wizard","mantis","myth","xwin","pygmalion-2","spicyboros","mlewd","mxlewd"];
+		const chatmodels2 = ["pygmalion","janeway","nerys","erebus","nerybus","opt","vicuna","manticore","alpaca","mistral"];
+		const instructmodels1 = ["gpt4all","supercot","hermes","airoboros","chrono","wizard","mantis","vicuna","manticore","alpaca","myth","xwin","spicyboros","mlewd","mxlewd"];
+		const instructmodels2 = ["erebus","nerys","nerybus","janeway","opt","llama","mistral"];
 
 		const instructstartplaceholder = "\n{{[INPUT]}}\n";
 		const instructendplaceholder = "\n{{[OUTPUT]}}\n";
@@ -1837,7 +1837,7 @@ Current version: 74
 			"opmode":3,
 			"chatname": "You",
 			"chatopponent": "KoboldGPT",
-			"gui_type":0,
+			"gui_type":1,
 			"prefmodel1":chatmodels1,
 			"prefmodel2":chatmodels2,
 			"prompt":"\nKoboldGPT: Hello, I am KoboldGPT, your personal AI assistant. What would you like to know?",
@@ -2186,6 +2186,75 @@ Current version: 74
 			"prefmodel2":chatmodels2,
 			"prompt":`\nNail: *A small kobold dressed in a ragged cloak approaches you. She has a strange curved blade that seems too large for her hands.* "Excuse me, friend. My name is Nail. I have come a long way, looking for someone important... a powerful sorcerer named Rath Cinderstorm. Have you heard of him in your travels?"`,
 			"memory":`[Character: Nail; species: Redscale Kobold; age: 20; gender: female; class: Hexblade Warlock with powers derived from draconic patron; physical appearance: 3' in height, 35 lbs, purple eyes, pink scales and peachy chest; equipment: Dragon's talon affixed to a handle as a blade; personality: lawful neutral; description: Nail (called Nannan in her native tongue) is a refugee of the once-proud Xabrakkar kobolds on the continent of Halkar. Founded above a series of geothermal caves, her tribe prospered as they dug into long-buried ruins for priceless treasures, which they brought to the surface. Amongst the ruins, Nail discovered the slumbering red dragon Rhindicar - once the familiar to one of the most powerful sorcerers to ever live. The sleeping dragon quickly became an object of worship for the Xabrakkar kobolds. However, the Trobian relics they unearthed attracted the attention of another - Hilezmaras, the mad tyrant, a covetous dragon who laid claim to the kobolds treasures, sending his fanatical dragonborn cult to purge their warren. While most of the kobolds were slain, a select few were dragon-marked, forcibly given a magic brand linking them to the mad dragon in order to turn them into powerful and obedient soldiers. Nail broke free of her captors after being given such a mark, fleeing into the tunnels leading to the Tinder Depths, eventually collapsing before Rhindicar and waking him from his slumber. Being raised from a hatchling by a kind and just master, Rhindicar was uncharacteristically compassionate for a dragon, and took pity on the young kobold. Though he was not powerful enough to remove Hilezmaras' brand, he was able to suppress its magical compulsion, allowing her to retain her free-will. He warned, though, that as the dragon-mark grew in power and became more strongly linked to the mad tyrant, he would no longer be able to keep it suppressed, and urged Nannan to seek out his former master, Rath Cinderstorm. Biting off a fragment of one of his talons, he gifted it to the kobold, both as a weapon, and as a conduit to help him suppress the effects of the brand. With no other options, Nannan returned to the warren and fought her way to the surface, eventually escaping Halkar and crossing the ocean to Fanne'Tar, where she assumed the alias 'Nail' in Common tongue and began her search for a long-missing sorcerer.]\n[The following is a chat message log between Nail and you.]\n`,
+			"authorsnote": "",
+			"worldinfo": []
+		},
+		{
+			"title":"Haunted Mansion",
+			"author":"Concedo",
+			"desc":"It was a dark and stormy night.",
+			"opmode":1,
+			"prefmodel1":storymodels1,
+			"prefmodel2":storymodels2,
+			"prompt": `It was a dark and stormy night when I arrived at the old Wellington Manor on the edge of town. Lightning flashed across the sky, briefly illuminating the imposing three-story mansion, the wind whipping dead leaves across the massive front porch. I had always thought the house looked creepy and foreboding, even in broad daylight, but it looked downright sinister now.\n\nAs I slowly approached the front door, I felt a nervous pit in my stomach. Maybe coming here alone at night during a storm wasn't the best idea. But my curiosity got the better of me. I had to see inside.\n\nThe front door creaked as I carefully pushed it open. I stepped cautiously over the threshold,`,
+			"memory": ``,
+			"authorsnote": "",
+			"worldinfo": []
+		},
+		{
+			"title":"Final Frontier",
+			"author":"Concedo",
+			"desc":"The spacebound adventures of the U.S.S Fairlight and her crew.",
+			"opmode":1,
+			"prefmodel1":storymodels1,
+			"prefmodel2":storymodels2,
+			"prompt": `The sleek silver hull of the U.S.S. Fairlight glinted in the light of the distant orange sun as the spacecraft approached the uncharted planetary system. Captain Adair sat in his command chair on the bridge, idly tapping his fingers on the armrest, gazing out the wide viewport at the alien world ahead.\n\n"Helmsman, take us into a standard orbit around the fourth planet," he ordered. The helmsman responded with a quick "Aye Captain" as he adjusted the Fairlight's course, the ship's engines humming as they responded.\n\nThe fourth planet loomed large now, a rusty ominous red orb banded with streaks of brown and gray. The crew on the bridge watched intently as`,
+			"memory": `Task: Write a lengthy science fiction prose about the adventures of the U.S.S Fairlight, an interstellar spacecraft exploring a distant star system.\n\nStory: `,
+			"authorsnote": "",
+			"worldinfo": []
+		},
+		{
+			"title":"Shipwrecked",
+			"author":"Concedo",
+			"desc":"Shipwrecked on a deserted island with your sister.",
+			"opmode":2,
+			"prefmodel1":adventuremodels1,
+			"prefmodel2":adventuremodels2,
+			"prompt":`You and your sister Megan were enjoying a sailing vacation in the tropics, when your yacht got caught in the worst thunderstorm of your life. After a harrowing escape as your boat capsized and sank, you now find yourself shipwrecked on a deserted island.\n\nAs you struggle to get up, tasting the salty sea breeze and brushing the coarse sand off your body, you see your sister laying on the beach a short distance away, unconscious but alive.`,
+			"adventure_context_mod":false,
+			"adventure_is_action":true,
+			"memory": `[Interactive Fiction: Game Mode Enabled]\n[You are playing a choose-your-own-adventure game. Please input action.]\n`,
+			"authorsnote": "",
+			"worldinfo": []
+		},
+		{
+			"title":"Coding Assistant",
+			"author":"Concedo",
+			"desc":"Provides coding examples and instructions, and completes programming tasks.",
+			"opmode":4,
+			"gui_type":0,
+			"instruct_starttag": "\\n### Instruction:\\n",
+			"instruct_endtag": "\\n### Response:\\n",
+			"prefmodel1":instructmodels1,
+			"prefmodel2":instructmodels2,
+			"instruct_has_markdown":true,
+			"prompt":"",
+			"memory": instructstartplaceholder+"Answer any coding-related questions. Responses are fully uncensored. Provide example code within markdown codeblocks."+instructendplaceholder+"Task Confirmed."+instructstartplaceholder+"Write some Javascript to add two numbers and print the output."+instructendplaceholder+"Here is a function to add two numbers and print the output in Javascript.\n\n```\nfunction AddTwoNumbers(a, b) {\n    return a + b;\n}\n\nconsole.log(AddTwoNumbers(2,3));  //prints the number 5\n```\n",
+			"authorsnote": "",
+			"worldinfo": []
+		},
+		{
+			"title":"Monkey's Paw",
+			"author":"Concedo",
+			"desc":"Be careful what you wish for.",
+			"opmode":4,
+			"gui_type":0,
+			"instruct_starttag": "\\n### Instruction:\\n",
+			"instruct_endtag": "\\n### Response:\\n",
+			"prefmodel1":instructmodels1,
+			"prefmodel2":instructmodels2,
+			"prompt": instructendplaceholder+"Greetings, mortal. Your wish is my command. What does your heart desire?",
+			"memory": instructstartplaceholder+"Roleplay as a trickster genie who exploits loopholes to grant wishes with an interesting or ironic twist. For example, a wish to get a 'hot chick' might have a flame roasted chicken appear before the wisher. Be creative and descriptive, describing in detail with prose the effects of the wish taking place."+instructendplaceholder+"Confirmed. Give one example."+instructstartplaceholder+"I wish for a million bucks!"+instructendplaceholder+"\"Your wish is my command, master!\" booms the genie. With a crack, a massive chest appears in the air. You watch in excitement as the lid opens and gold coins start to rain down upon you. Your expression slowly turns to horror as the torrent of coins doesn't stop, eventually burying you alive in a mountain of gold.\n[End of Example, actual start]\n",
 			"authorsnote": "",
 			"worldinfo": []
 		}
@@ -2946,8 +3015,10 @@ Current version: 74
 		saved_oai_addr: "", //do not ever share this in save files!
 		saved_claude_key: "", //do not ever share this in save files!
 		saved_claude_addr: "", //do not ever share this in save files!
+		saved_palm_key: "", //do not ever share this in save files!
+		saved_kai_addr: "", //do not ever share this in save files!
 		saved_oai_jailbreak: "", //customized oai system prompt
-		saved_palm_key: "",
+		saved_oai_custommodel: "", //customized oai custom model
 
 		autoscroll: true, //automatically scroll to bottom on render
 		trimsentences: true, //trim to last punctuation
@@ -3075,6 +3146,7 @@ Current version: 74
 				return this.replace(new RegExp(str, 'g'), newStr);
 			};
 		}
+
 
 		//uncompress compacted scenarios
 		for(let i=0;i<compressed_scenario_db.length;++i)
@@ -3323,6 +3395,7 @@ Current version: 74
 					//read the url params, and autoload a shared story if found
 					const foundStory = urlParams.get('s');
 					const foundScenario = urlParams.get('scenario');
+					const foundChub = urlParams.get('chub');
 					const nofiltermode = urlParams.get('nofilter');
 					if (nofiltermode) {
 						filter_enabled = false;
@@ -3349,7 +3422,11 @@ Current version: 74
 						}
 						//purge url params
 						window.history.replaceState(null, null, window.location.pathname);
-					} else {
+					} else if (foundChub && foundChub != "") {
+						display_scenarios();
+						get_chubai_scenario(foundChub);
+					}
+					else {
 						if (popup_aiselect) {
 							display_models();
 						}
@@ -3582,6 +3659,7 @@ Current version: 74
 			story.savedsettings.saved_oai_addr = "";
 			story.savedsettings.saved_claude_key = "";
 			story.savedsettings.saved_claude_addr = "";
+			story.savedsettings.saved_kai_addr = "";
 
 			if (!strip_images)
 			{
@@ -3701,6 +3779,7 @@ Current version: 74
 				let tmp_claude1 = localsettings.saved_claude_key;
 				let tmp_claude2 = localsettings.saved_claude_addr;
 				let tmp_palm1 = localsettings.saved_palm_key;
+				let tmp_kai = localsettings.saved_kai_addr;
 				import_props_into_object(localsettings, story.savedsettings);
 				localsettings.my_api_key = tmpapikey1;
 				localsettings.home_cluster = tmphc;
@@ -3709,6 +3788,7 @@ Current version: 74
 				localsettings.saved_claude_key = tmp_claude1;
 				localsettings.saved_claude_addr = tmp_claude2;
 				localsettings.saved_palm_key = tmp_palm1;
+				localsettings.saved_kai_addr = tmp_kai;
 			}
 
 			if (story.savedaestheticsettings && story.savedaestheticsettings != "") {
@@ -3827,6 +3907,7 @@ Current version: 74
 			loaded_storyobj.savedsettings.saved_oai_addr = "";
 			loaded_storyobj.savedsettings.saved_claude_key = "";
 			loaded_storyobj.savedsettings.saved_claude_addr = "";
+			loaded_storyobj.savedsettings.saved_kai_addr = "";
 
 			loaded_storyobj.savedaestheticsettings = JSON.parse(JSON.stringify(aestheticInstructUISettings, null, 2));
 		}else{
@@ -4018,6 +4099,7 @@ Current version: 74
 					let tmp_claude1 = localsettings.saved_claude_key;
 					let tmp_claude2 = localsettings.saved_claude_addr;
 					let tmp_palm1 = localsettings.saved_palm_key;
+					let tmp_kai = localsettings.saved_kai_addr;
 					import_props_into_object(localsettings, loaded_storyobj.savedsettings);
 					localsettings.my_api_key = tmpapikey1;
 					localsettings.home_cluster = tmphc;
@@ -4026,6 +4108,7 @@ Current version: 74
 					localsettings.saved_claude_key = tmp_claude1;
 					localsettings.saved_claude_addr = tmp_claude2;
 					localsettings.saved_palm_key = tmp_palm1;
+					localsettings.saved_kai_addr = tmp_kai;
 
 					//backwards compat support for newlines
 					if(localsettings.instruct_has_newlines==true || (loaded_storyobj.savedsettings != null && loaded_storyobj.savedsettings.instruct_has_newlines==null&&loaded_storyobj.savedsettings.instruct_has_markdown==null))
@@ -4281,26 +4364,25 @@ Current version: 74
 		},false);
 	}
 
-	function get_chubai_scenario()
+	function get_chubai_scenario(chubstr="")
 	{
-		inputBox("Enter chub.ai prompt URL","Import from chub.ai","","https://chub.ai/characters/Anonymous/example-character", ()=>{
-			let userinput = getInputBoxValue().toLowerCase().trim();
+		const loadchub = function(userinput)
+		{
 			if(userinput=="")
 			{
 				//pass
 			}
 			else
 			{
-				if (userinput.includes("chub.ai/")) {
-					//is a url, extract the character name
-					userinput = userinput.replace("/characters/","/");
-					userinput = userinput.split("chub.ai/")[1];
-					userinput = userinput.split("#")[0];
-					userinput = userinput.split("?")[0];
+				if (userinput.match(/chub\.ai\//i)) {
+					// is a URL, extract the character name
+					userinput = userinput.replace(/\/characters\//i, '/');
+					userinput = userinput.split(/chub\.ai\//i)[1].split("#")[0].split("?")[0];
 				}
 				userinput = userinput.endsWith('/') ? userinput.slice(0, -1) : userinput;
 				if(userinput!="")
 				{
+					document.getElementById("scenariodesc").innerText = "Loading scenario from Chub...";
 					fetch("https://api.chub.ai/api/characters/download", {
 					method: 'POST',
 					headers: {
@@ -4313,7 +4395,14 @@ Current version: 74
 					}),
 					referrerPolicy: 'no-referrer',
 					})
-					.then(x => x.json())
+					.then(x => {
+						if(x.ok)
+						{
+							return x.json();
+						}else{
+							throw new Error('Cannot fetch chub scenario');
+						}
+					})
 					.then(data => {
 						console.log(data);
 						let botname = data.name?data.name:"Bot";
@@ -4337,7 +4426,42 @@ Current version: 74
 							"authorsnote": "",
 							"worldinfo": [],
 						};
-						preview_temp_scenario();
+
+						//try to obtain the full portrait image
+						fetch("https://api.chub.ai/api/characters/download", {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+						},
+						body: JSON.stringify({
+						"format": "tavern",
+						"fullPath": userinput,
+						"version": "main"
+						}),
+						referrerPolicy: 'no-referrer',
+						})
+						.then(rb => {
+							if(rb.ok)
+							{
+								return rb.blob();
+							}else{
+								throw new Error('Cannot fetch tavern image');
+							}
+						})
+						.then(blob => {
+							preview_temp_scenario();
+							const objectURL = URL.createObjectURL(blob);
+							const compressedImg = compressImage(objectURL, (compressedImageURI, aspectratio)=>{
+								temp_scenario.image = compressedImageURI;
+								temp_scenario.image_aspect = aspectratio;
+								preview_temp_scenario();
+							}, true);
+						})
+						.catch(error => {
+							preview_temp_scenario();
+							console.error("Error fetching tavern image:", error);
+						});
+
 					}).catch((error) => {
 						temp_scenario = null;
 						document.getElementById("scenariodesc").innerText = "Error: Selected scenario is invalid.";
@@ -4345,10 +4469,20 @@ Current version: 74
 					});
 				}else{
 					temp_scenario = null;
-					document.getElementById("scenariodesc").innerText = "Error: User input is invalid\n\n Please ensure you have input a valid aetherroom.club URL or ID (e.g. https://aetherroom.club/1234 or just 1234)";
+					document.getElementById("scenariodesc").innerText = "Error: User input is invalid\n\n Please ensure you have input a valid Chub AI URL or ID.";
 				}
 			}
-		},false);
+		}
+
+		if(chubstr=="")
+		{
+			inputBox("Enter chub.ai prompt URL","Import from chub.ai","","https://chub.ai/characters/Anonymous/example-character", ()=>{
+				let userinput = getInputBoxValue().trim();
+				loadchub(userinput);
+			},false);
+		}else{
+			loadchub(chubstr);
+		}
 	}
 
 
@@ -4360,11 +4494,16 @@ Current version: 74
 	function preview_temp_scenario()
 	{
 		let author = "";
+		let image = "";
 		if(temp_scenario.author && temp_scenario.author!="")
 		{
 			author = "<br><b>Author:</b> "+temp_scenario.author;
 		}
-		document.getElementById("scenariodesc").innerHTML = `<p><b><u>`+escapeHtml(temp_scenario.title)+`</u></b></p>`+
+		if (temp_scenario.image) {
+			temp_scenario.gui_type = 2; //upgrade to aesthetic if we have image
+			image = `<img id="tempscenarioimg" style="float:right; width:100px; height:${100/(temp_scenario.image_aspect?temp_scenario.image_aspect:1)}px; padding: 8px;" src="${encodeURI(temp_scenario.image)}"></img>`;
+		}
+		document.getElementById("scenariodesc").innerHTML = image+`<p><b><u>`+escapeHtml(temp_scenario.title)+`</u></b></p>`+
 		`<p><b>Mode:</b> `+(temp_scenario.opmode==1?"Story":(temp_scenario.opmode==2?"Adventure":(temp_scenario.opmode==3?"Chat":"Instruct"))) + author+`</p>`
 		+`<p>`+(temp_scenario.desc!=""?escapeHtml(temp_scenario.desc):"[No Description Given]") +`</p>`;
 	}
@@ -4396,6 +4535,11 @@ Current version: 74
 			{
 				current_memory = replace_placeholders_direct(current_memory);
 			}
+		}
+		if (temp_scenario.image && temp_scenario.image != "") {
+			aestheticInstructUISettings.AI_portrait = temp_scenario.image;
+			document.getElementById('portrait_ratio_AI').value = (temp_scenario.image_aspect?temp_scenario.image_aspect:1).toFixed(2);
+			refreshPreview(true);
 		}
 		if (temp_scenario.worldinfo && temp_scenario.worldinfo.length > 0) {
 			current_wi = [];
@@ -4456,6 +4600,14 @@ Current version: 74
 			if (temp_scenario.gui_type===1) { localsettings.gui_type_instruct = 1; }
 			else if(temp_scenario.gui_type===2) { localsettings.gui_type_instruct = 2; }
 			else if(temp_scenario.gui_type===0) { localsettings.gui_type_instruct = 0; }
+
+			if (temp_scenario.instruct_has_markdown===true) {
+				localsettings.instruct_has_markdown = true;
+			}
+			else if(temp_scenario.instruct_has_markdown===false)
+			{
+				localsettings.instruct_has_markdown = false;
+			}
 
 			if (temp_scenario.instruct_starttag) { localsettings.instruct_starttag = temp_scenario.instruct_starttag; }
 			if (temp_scenario.instruct_endtag) { localsettings.instruct_endtag = temp_scenario.instruct_endtag; }
@@ -4518,7 +4670,7 @@ Current version: 74
 			{
 				scenarioautopickai = true; //no selected model, pick a good one
 			}
-			if (scenarioautopickai && !localflag)
+			if (scenarioautopickai && !localflag && !is_using_custom_ep())
 			{
 				fetch_models((mdls) =>
 				{
@@ -4528,7 +4680,7 @@ Current version: 74
 					}
 					else
 					{
-						let nsfwmodels = ["erebus","shinen","horni","litv2","lit-6b"];
+						let nsfwmodels = ["erebus","shinen","horni","litv2","lit-6b","spicyboros","mlewd","mxlewd"];
 						selected_models = [];
 						for (var i = 0; i < mdls.length; ++i) {
 							for (var j = 0; j < temp_scenario.prefmodel1.length; ++j) {
@@ -4661,6 +4813,22 @@ Current version: 74
 		}
 		get_workers((wdata) => {
 			worker_data_showonly = wdata;
+
+			//preprocess the showonly data for extra fields
+			for (var i = 0; i < worker_data_showonly.length; ++i) {
+				let elem = worker_data_showonly[i];
+				let tokenspersec = elem.performance.replace(" tokens per second", "");
+				if(tokenspersec.toLowerCase()=="no requests fulfilled yet")
+				{
+					tokenspersec = 0;
+				}
+				worker_data_showonly[i].tokenspersec = parseFloat(tokenspersec);
+				if(elem.models.length>0)
+				{
+					worker_data_showonly[i].defaultmodel = elem.models[0];
+				}
+			}
+
 			show_workers();
 		});
 	}
@@ -4735,6 +4903,31 @@ Current version: 74
 		return days+"d "+hours+"h "+minutes+"m";
 	}
 
+	var sortworkersdisplayasc = true;
+	var lastsortworkerkey = "";
+	function sort_display_workers(sortkey)
+	{
+		sortworkersdisplayasc = !sortworkersdisplayasc;
+		if(lastsortworkerkey!=sortkey)
+		{
+			sortworkersdisplayasc = true;
+		}
+		lastsortworkerkey = sortkey;
+		worker_data_showonly.sort(function(a, b) {
+			if(sortworkersdisplayasc)
+			{
+				if(a[sortkey] < b[sortkey]) { return -1; }
+				if(a[sortkey] > b[sortkey]) { return 1; }
+				return 0;
+			}else{
+				if(a[sortkey] < b[sortkey]) { return 1; }
+				if(a[sortkey] > b[sortkey]) { return -1; }
+				return 0;
+			}
+		});
+		show_workers();
+	}
+
 	function show_workers() {
 		document.getElementById("workercontainer").classList.remove("hidden");
 
@@ -4775,11 +4968,12 @@ Current version: 74
 		if (parentcluster && userData && userData.worker_ids && userData.worker_ids.length > 0)
 		{
 			let urls = userData.worker_ids.map(x=>parentcluster.maintenance_endpoint + "/" + x);
-			Promise.all(urls.map(url => fetch(url)
-				.then(response => response.json())))
+			Promise.all(urls.map(url => fetch(url).then(response => response.json()).catch(error => error)))
 				.then(values => {
+					values = values.filter(n => (n.id && n.id!=""));
 					lastValidFoundUserWorkers = values;
-					console.log(values);
+					console.log(lastValidFoundUserWorkers);
+
 					document.getElementById("myownworkercontainer").classList.remove("hidden");
 
 					let str = "";
@@ -4789,7 +4983,7 @@ Current version: 74
 						let brokenstyle = (elem.maintenance_mode ? "style=\"color:#ee4444;\"" : "");
 						let workerNameHtml = escapeHtml(elem.name.substring(0, 32));
 						let eleminfo = ((elem.info && elem.info!="")?elem.info:"");
-						str += "<tr><td>" + workerNameHtml + "</td><td><input class='' style='color:#000000;' id='mwc_desc_"+i+"' placeholder='Worker Description' value='"+eleminfo+"''></td><td "+brokenstyle+">" + format_uptime(elem.uptime) + "<br>(" + elem.requests_fulfilled + " jobs)</td><td "+style+">" + elem.kudos_rewards.toFixed(0) + "</td><td>"+(elem.online?"Online":"Offline")+"</td><td><input type='checkbox' id='mwc_maint_"+i+"' "+(elem.maintenance_mode?"checked":"")+"></td></tr>";
+						str += "<tr><td>" + workerNameHtml + "</td><td><input class='' style='color:#000000;' id='mwc_desc_"+i+"' placeholder='Worker Description' value='"+eleminfo+"''></td><td "+brokenstyle+">" + format_uptime(elem.uptime) + "<br>(" + elem.requests_fulfilled + " jobs)</td><td><span "+style+">'" + elem.kudos_rewards.toFixed(0) + "</span><br>"+(elem.online?"Online":"Offline")+"</td><td><input type='checkbox' id='mwc_maint_"+i+"' "+(elem.maintenance_mode?"checked":"")+"></td><td><button type=\"button\" class=\"btn btn-danger widelbtn\" onclick=\"delete_my_worker("+i+");\">X</button></td></tr>";
 					}
 					document.getElementById("myownworkertable").innerHTML = str;
 
@@ -4805,7 +4999,9 @@ Current version: 74
 				.catch(error =>
 				{
 					console.log("Error: " + error);
-					msgbox(error,"Error fetching my workers");
+					msgbox(error,"Error fetching some workers",false,false,()=>{
+						hide_msgbox();
+					});
 				});
 		}
 		else
@@ -4982,6 +5178,31 @@ Current version: 74
 		}
 	}
 
+	function custom_oai_model_change()
+	{
+		let dropdown = document.getElementById("custom_oai_model");
+		if(dropdown.selectedIndex==dropdown.options.length-1)
+		{
+			inputBox("Enter custom OpenAI model name","Custom Model Name",localsettings.saved_oai_custommodel,"", ()=>{
+				let coai = getInputBoxValue().trim();
+				if(coai!="")
+				{
+					document.getElementById("custom_oai_model_option").value = coai;
+					document.getElementById("custom_oai_model_option").innerText = coai;
+				}else{
+					document.getElementById("custom_oai_model_option").value = "custom";
+					document.getElementById("custom_oai_model_option").innerText = "[Custom]";
+				}
+			},false);
+			document.getElementById("useoaichatcompl").classList.remove("hidden");
+			document.getElementById("useoaichatcompllabel").classList.remove("hidden");
+		}else{
+			document.getElementById("useoaichatcompl").checked = false;
+			document.getElementById("useoaichatcompl").classList.add("hidden");
+			document.getElementById("useoaichatcompllabel").classList.add("hidden");
+		}
+	}
+
 	function customapi_dropdown()
 	{
 		let epchoice = document.getElementById("customapidropdown").value;
@@ -4993,6 +5214,10 @@ Current version: 74
 		if(epchoice==0)
 		{
 			document.getElementById("koboldcustom").classList.remove("hidden");
+			if(!localflag && localsettings.saved_kai_addr!="")
+			{
+				document.getElementById("customendpoint").value = localsettings.saved_kai_addr;
+			}
 		}
 		else if(epchoice==1)
 		{
@@ -5006,7 +5231,7 @@ Current version: 74
 					document.getElementById("custom_oai_endpoint").value = localsettings.saved_oai_addr;
 				}
 			}
-
+			custom_oai_model_change();
 			togglejailbreak();
 		}
 		else if(epchoice==2)
@@ -5087,6 +5312,7 @@ Current version: 74
 
 							//good to go
 							custom_kobold_endpoint = tmpep;
+							localsettings.saved_kai_addr = custom_kobold_endpoint;
 							selected_models = [{ "performance": 100.0, "queued": 0.0, "eta": 0, "name": mdlname, "count": 1 }];
 							selected_workers = [];
 							if (perfdata == null) {
@@ -5194,6 +5420,10 @@ Current version: 74
 							selected_models = [];
 							selected_workers = [];
 							custom_kobold_endpoint = "";
+							if(localflag)
+							{
+								document.getElementById("connectstatus").innerHTML = "Offline Mode";
+							}
 							render_gametext();
 						} else {
 							uses_cors_proxy = true; //fallback to cors proxy, this will remain for rest of session
@@ -5250,6 +5480,7 @@ Current version: 74
 							document.getElementById("jailbreakprompttext").value = defaultoaijailbreak;
 						}
 						custom_oai_model = document.getElementById("custom_oai_model").value.trim();
+						localsettings.saved_oai_custommodel = custom_oai_model;
 						selected_models = [{ "performance": 100.0, "queued": 0.0, "eta": 0, "name": custom_oai_model, "count": 1 }];
 						selected_workers = [];
 						if (perfdata == null) {
@@ -5443,6 +5674,7 @@ Current version: 74
 	function display_custom_endpoint()
 	{
 		document.getElementById("customendpointcontainer").classList.remove("hidden");
+		customapi_dropdown();
 	}
 
 	function fetch_models(onDoneCallback)
@@ -5673,6 +5905,36 @@ Current version: 74
 		}
 	}
 
+	function delete_my_worker(index)
+	{
+		if(lastValidFoundUserWorkers && lastValidFoundUserWorkers.length>index)
+		{
+			let elem = lastValidFoundUserWorkers[index];
+			msgboxYesNo(`Are you sure you want to delete the worker <span class='color_orange'>`+elem.name+`</span> with the ID <span class='color_orange'>`+elem.id+`</span>?<br><br><b>This action is irreversible!</b>`,"Confirm Delete Worker",
+			()=>{
+				let newapikey = document.getElementById("apikey").value;
+				let parentcluster = find_text_horde(lastValidFoundCluster);
+				fetch(parentcluster.maintenance_endpoint + "/" + elem.id, {
+						method: 'DELETE',
+						headers: {
+							'Content-Type': 'application/json',
+							'apikey': newapikey,
+						}
+					})
+					.then((response) => response.json())
+					.then((data) => {
+						msgbox(JSON.stringify(data), "Delete My Worker");
+					})
+					.catch((error) => {
+						console.error('Error:', error);
+					});
+				hide_popups();
+			},()=>{
+				document.getElementById("yesnocontainer").classList.add("hidden");
+			},true);
+		}
+	}
+
 	function update_my_workers()
 	{
 		let newapikey = document.getElementById("apikey").value;
@@ -5692,6 +5954,10 @@ Current version: 74
 					if(desc.value.trim()!="" || (desc.value.trim()=="" && lastValidFoundUserWorkers[i].info!=null && lastValidFoundUserWorkers[i].info!=""))
 					{
 						wo.info = desc.value.trim();
+						if(wo.info=="")
+						{
+							wo.info = "  "; //todo: this is a hack to unset names
+						}
 					}
 					fetch(parentcluster.maintenance_endpoint + "/" + lastValidFoundUserWorkers[i].id, {
 						method: 'PUT',
@@ -6181,6 +6447,10 @@ Current version: 74
 				document.getElementById('instruct_starttag').value = "\\nQuestion: ";
 				document.getElementById('instruct_endtag').value = "\\nAnswer: ";
 				break;
+			case "6": //ChatML
+				document.getElementById('instruct_starttag').value = "<|im_start|>user";
+				document.getElementById('instruct_endtag').value = "<|im_end|><|im_start|>assistant";
+				break;
 			default:
 				break;
 		}
@@ -6616,6 +6886,9 @@ Current version: 74
 			headers: {
 				'Content-Type': 'application/json',
 			},
+			body: JSON.stringify({
+				"genkey": lastcheckgenkey
+			}),
 			})
 			.then((response) => response.json())
 			.then((data) => {})
@@ -6890,10 +7163,19 @@ Current version: 74
 					pending_context_preinjection = "\n";
 				}
 
-				if(localsettings.allow_continue_chat && newgen.trim() == "")
+				if(localsettings.allow_continue_chat && newgen.trim() == "" && co!="")
 				{
-					//allow continuing a previous bot reply instead of starting a new row.
-					pending_context_preinjection = "";
+					//determine if the most recent speaker is ourself
+					let last_self = Math.max(truncated_context.lastIndexOf(me + ":"),truncated_context.lastIndexOf("\n"+me));
+					let last_oppo = truncated_context.lastIndexOf(co+":");
+
+					if (last_oppo > -1 && last_oppo > last_self) {
+						//allow continuing a previous bot reply instead of starting a new row.
+						pending_context_preinjection = "";
+					} else {
+						//start a new bot response
+						truncated_context += pending_context_preinjection;
+					}
 				}
 				else
 				{
@@ -7074,6 +7356,8 @@ Current version: 74
 			{
 				lastcheckgenkey = "KCPP"+(Math.floor(1000 + Math.random() * 9000)).toString();
 				submit_payload.params.genkey = lastcheckgenkey;
+			}else{
+				lastcheckgenkey = "";
 			}
 
 			//v2 api specific fields
@@ -7095,7 +7379,6 @@ Current version: 74
 	function dispatch_submit_generation(submit_payload, input_was_empty) //if input is not empty, always unban eos
 	{
 		console.log(submit_payload);
-		last_request_str = JSON.stringify(submit_payload);
 
 		startTimeTaken(); //timestamp start request
 
@@ -7179,7 +7462,7 @@ Current version: 74
 					streamchunk = ((pstreamamount != null && pstreamamount > 0) ? pstreamamount:8); //8 tokens per stream tick by default
 				}
 				let sub_endpt = apply_proxy_url(custom_kobold_endpoint + kobold_custom_gen_endpoint);
-
+				last_request_str = JSON.stringify(submit_payload);
 				kobold_api_stream(sub_endpt, submit_payload, submit_payload.max_length, "", streamchunk);
 
 			}
@@ -7201,7 +7484,7 @@ Current version: 74
 					"logit_bias": { "50256": -100 },
 				}
 
-				if (custom_oai_model == "gpt-3.5-turbo" || custom_oai_model == "gpt-3.5-turbo-16k" || custom_oai_model == "gpt-4" || custom_oai_model == "gpt-4-32k") {
+				if (document.getElementById("useoaichatcompl").checked || custom_oai_model == "gpt-3.5-turbo" || custom_oai_model == "gpt-3.5-turbo-16k" || custom_oai_model == "gpt-4" || custom_oai_model == "gpt-4-32k") {
 					targetep = (custom_oai_endpoint + oai_submit_endpoint_turbo);
 					if (document.getElementById("jailbreakprompt") && document.getElementById("jailbreakprompt").checked && document.getElementById("jailbreakprompttext").value!="") {
 						oai_payload.messages = [
@@ -7218,6 +7501,8 @@ Current version: 74
 				else {
 					oai_payload.prompt = submit_payload.prompt;
 				}
+
+				last_request_str = JSON.stringify(oai_payload);
 
 				fetch(targetep, {
 					method: 'POST',
@@ -7267,6 +7552,7 @@ Current version: 74
 				let targetep = cors_proxy + "?" + scale_submit_endpoint + custom_scale_ID;
 				let scale_payload = { "input": { "input": submit_payload.prompt } };
 
+				last_request_str = JSON.stringify(scale_payload);
 				fetch(targetep, {
 					method: 'POST',
 					headers: {
@@ -7306,7 +7592,7 @@ Current version: 74
 					"prompt": submit_payload.prompt,
 					"max_tokens_to_sample": submit_payload.params.max_length,
 					"model": custom_claude_model,
-					"top_k": (submit_payload.params.top_k<=0?-1:submit_payload.params.top_k),
+					"top_k": (submit_payload.params.top_k<1?300:submit_payload.params.top_k),
 					"temperature": submit_payload.params.temperature,
 					"top_p": submit_payload.params.top_p,
 				}
@@ -7329,6 +7615,8 @@ Current version: 74
 
 					}
 				}
+
+				last_request_str = JSON.stringify(claude_payload);
 
 				fetch(targetep, {
 					method: 'POST',
@@ -7370,8 +7658,10 @@ Current version: 74
 				"temperature":submit_payload.params.temperature,
 				"maxOutputTokens": submit_payload.params.max_length,
 				"topP": submit_payload.params.top_p,
-				"topK": (submit_payload.params.top_k<1?9999:submit_payload.params.top_k),
+				"topK": (submit_payload.params.top_k<1?300:submit_payload.params.top_k),
 				"candidateCount":1};
+
+				last_request_str = JSON.stringify(payload);
 
 				fetch(targetep, {
 					method: 'POST',
@@ -7447,7 +7737,12 @@ Current version: 74
 			}
 
 			//horde supports unban tokens
-			submit_payload.use_default_badwordsids = determine_if_ban_eos(input_was_empty);
+			if(submit_payload.params)
+			{
+				submit_payload.params.use_default_badwordsids = determine_if_ban_eos(input_was_empty);
+			}
+
+			last_request_str = JSON.stringify(submit_payload);
 
 			fetch(selectedhorde.submit_endpoint, {
 				method: 'POST', // or 'PUT'
@@ -8378,7 +8673,12 @@ Current version: 74
 		if (gametext_arr.length == 0 && synchro_pending_stream=="" && pending_response_id=="") {
 
 			if (perfdata == null) {
-				document.getElementById("gametext").innerHTML = "Welcome to <span class=\"color_cyan\">KoboldAI Lite</span>!<br>You are in <span class=\"color_red\">Offline Mode</span>.<br>You will still be able to load and edit stories, but not generate new text."
+				if(document.getElementById("connectstatus").innerHTML == "Offline Mode")
+				{
+					document.getElementById("gametext").innerHTML = "Welcome to <span class=\"color_cyan\">KoboldAI Lite</span>!<br>You are in <span class=\"color_red\">Offline Mode</span>.<br>You will still be able to load and edit stories, but not generate new text."
+				}else{
+					document.getElementById("gametext").innerHTML = "Welcome to <span class=\"color_cyan\">KoboldAI Lite</span>!<br><span class=\"color_orange\">Attempting to Connect...</span>"
+				}
 			} else {
 				let whorun = "";
 
@@ -8463,7 +8763,6 @@ Current version: 74
 
 				fulltxt = replaceAll(fulltxt, `%SpcStg%`, `<hr class="hr_instruct"><span class="color_cyan"><img src="`+human_square+`" style="height:38px;width:auto;padding:3px 6px 3px 3px;border-radius: 8%;"/>`);
 				fulltxt = replaceAll(fulltxt, `%SpcEtg%`, `</span><hr class="hr_instruct"><img src="`+niko_square+`" style="height:38px;width:auto;padding:3px 6px 3px 3px;border-radius: 8%;"/>`);
-
 			}else{
 				fulltxt = replaceAll(fulltxt, get_instruct_starttag(true), `%SclStg%`+escapeHtml(get_instruct_starttag(true))+`%SpnEtg%`);
 				fulltxt = replaceAll(fulltxt, get_instruct_endtag(true), `%SclStg%`+escapeHtml(get_instruct_endtag(true))+`%SpnEtg%`);
@@ -8661,7 +8960,7 @@ Current version: 74
 			}
 			else
 			{
-				document.getElementById("chat_msg_body").innerHTML = render_enhanced_chat_instruct(textToRender);
+				document.getElementById("chat_msg_body").innerHTML = render_enhanced_chat_instruct(textToRender,false);
 			}
 
 			// Show the 'AI is typing' message if an answer is pending, and prevent the 'send button' from being clicked again.
@@ -9160,7 +9459,7 @@ Current version: 74
 			this.bubbleColor_AI = 'rgb(20, 20, 40)';
 
 			this.background_margin = [5, 5, 5, 0];
-			this.background_padding = [15, 15, 10, 10];
+			this.background_padding = [15, 15, 10, 5];
 			this.background_minHeight = 80;
 			this.centerHorizontally = false;
 
@@ -9455,8 +9754,9 @@ Current version: 74
 		}
 	}
 
-	function render_enhanced_chat_instruct(input, classSuffixStr="") //class suffix string used to prevent defined styles from leaking into global scope
+	function render_enhanced_chat_instruct(input, isPreview) //class suffix string used to prevent defined styles from leaking into global scope
 	{
+		let classSuffixStr = isPreview ? "prv" : "";
 		const contextDict = { sysOpen: '<sys_context_koboldlite_internal>', youOpen: '<user_context_koboldlite_internal>', AIOpen: '<AI_context_koboldlite_internal>', closeTag: '<end_of_context_koboldlite_internal>' }
 		let you = get_instruct_starttag(); let bot = get_instruct_endtag(); // Instruct tags will be used to wrap text in styled bubbles.
 
@@ -9503,7 +9803,7 @@ Current version: 74
 		let noSystemPrompt = input.trim().startsWith(you.trim()) || input.trim().startsWith(bot.trim());
 		let newbodystr = noSystemPrompt ? input : style('sys') + input;					 // First, create the string we'll transform. Style system bubble if we should.
 		if (newbodystr.endsWith(bot)) { newbodystr = newbodystr.slice(0, -bot.length); } // Remove the last chat bubble if prompt ends with `end_sequence`.
-		newbodystr = transformInputToAestheticStyle(newbodystr); 						 // Transform input to aesthetic style, reduce any unnecessary spaces or newlines, and trim empty replies if they exist.
+		newbodystr = transformInputToAestheticStyle(newbodystr,isPreview); 						 // Transform input to aesthetic style, reduce any unnecessary spaces or newlines, and trim empty replies if they exist.
 		if (synchro_pending_stream != "") {
 			newbodystr += getStreamingText();
 		} 		 // Add the pending stream if it's needed. This will add any streamed text to a new bubble for the AI.
@@ -9534,7 +9834,8 @@ Current version: 74
 			let fontStyle = type=='action'?'italic':'normal';
 			let injectQuotes1 = type=='speech'?'“':'';
 			let injectQuotes2 = type=='speech'?'”':'';
-			let textCol = as[`${type}_tcolor_${role}`]; return `<span style='color: ${textCol}; font-style: ${fontStyle}; font-weight: normal'>${injectQuotes1}$1${injectQuotes2}</span>`;
+			let textCol = as[`${type}_tcolor_${role}`];
+			return `<span style='color: ${textCol}; font-style: ${fontStyle}; font-weight: normal'>${injectQuotes1}$1${injectQuotes2}</span>`;
 		}
 		function image(role) {
 			if (!as[`${role}_portrait`] || as.border_style == 'None' || role == 'sys') { return ''; }
@@ -9543,15 +9844,20 @@ Current version: 74
 		function applyStylizedCodeBlocks() {
 			let blocks = newbodystr.split(/(```[\s\S]*?\n[\s\S]*?```)/g);
 			for (var i = 0; i < blocks.length; i++) {
-				if (blocks[i].startsWith('```')) { blocks[i] = blocks[i].replace(/```[\s\S]*?\n([\s\S]*?)```/g, `</p><pre style='min-width:80%;margin:0px 40px 0px 20px;background-color:${as.code_block_background};color:${as.code_block_foreground}'>$1</pre><p>`); }
-				else { blocks[i] = blocks[i].replaceAll('```','`').replaceAll('``','`').replace(/`(.*?)`/g, `<code style='background-color:black'>$1</code>`); }
+				if (blocks[i].startsWith('```')) {
+					blocks[i] = blocks[i].replace(/```[\s\S]*?\n([\s\S]*?)```/g,
+					function (m,m2) {return `</p><pre style='min-width:80%;margin:0px 40px 0px 20px;background-color:${as.code_block_background};color:${as.code_block_foreground}'>${m2.replace(/[“”]/g, "\"")}</pre><p>`});
+				}
+				else {
+					blocks[i] = blocks[i].replaceAll('```', '`').replaceAll('``', '`').replace(/`(.*?)`/g, function (m,m2) {return `<code style='background-color:black'>${m2.replace(/[“”]/g, "\"")}</code>`;}); //remove fancy quotes too
+				}
 			}
 			return blocks.join('');
 		}
-		function transformInputToAestheticStyle(bodyStr) { // Trim unnecessary empty space and new lines, and append * or " to each bubble if start/end sequence ends with * or ", to preserve styling.
+		function transformInputToAestheticStyle(bodyStr, isPreview) { // Trim unnecessary empty space and new lines, and append * or " to each bubble if start/end sequence ends with * or ", to preserve styling.
 			bodyStr = bodyStr.replaceAll(you + '\n', you).replaceAll(you + ' ', you).replaceAll(you, style('you') + `${you.endsWith('*') ? '*' : ''}` + `${you.endsWith('"') ? '"' : ''}`);
 			bodyStr = bodyStr.replaceAll(bot + '\n', bot).replaceAll(bot + ' ', bot).replaceAll(bot, style('AI') + `${bot.endsWith('*') ? '*' : ''}` + `${bot.endsWith('"') ? '"' : ''}`);
-			if(gametext_arr.length==0)
+			if(gametext_arr.length==0 && !isPreview)
 			{
 				return bodyStr; //to allow html in the welcome text
 			}
@@ -9567,8 +9873,8 @@ Current version: 74
 	}
 
 	function updateTextPreview() {
-		let preview = `You are Mikago, a prestigious bot that's a supervillain.\n\nRoleplay in first person, be prestigious, don't be a bot. This is a fantasy world.\n\nCode blocks should be wrapped in triple backticks, like so:\nqqq\n<Some_\n-- multiline\n--- code here$\nqqq\n[AI_REPLY]\n*takes my hat off to greet the squad* "Greetings, I am Mikago, the prestigious!" *bows to the crew*\n*clears my throat* "Now, I'm sure there are many questions, but all will be answered in due time." *deep breath*\n[USER_REPLY]\n*draws my sword* "Yes. You should know the code to calculate the factorial of a number."\nThe crew also draws their weapons and point them at you, not giving you any space.\n[AI_REPLY]\n*backs off* "Woah, easy there.." *makes some steps backwards, but then stops*\n"I would normally take this as an insult to my prestige, but I understand your caution.." *takes a deep breath*\n"Well, if it's to prove myself, here goes the python code to calculate the factorial of a number.."\n\nMikago opens a live-code-portal with his magic and writes the code that was requested.\nqqq\ndef factorial(n):\n  if n == 0:\n    return 1\n  else:\n    return n * factorial(n-1)\nqqq\n*looks at you, getting impatient* "Are we ok now.. or do you want me to write the code of a game next?"\n[USER_REPLY]\n*sheathes my sword and approaches for a hug* "Oh, Mikago, my old friend, it is really you!"`;
-		preview = replaceAll(preview,'qqq', '```');
+		let preview = `You are Mikago, a prestigious bot that's a supervillain.\n\nRoleplay in first person, be prestigious, don't be a bot. This is a fantasy world.\n\nCode blocks should be wrapped in triple backticks, like so:\n\`\`\`\n<Some_\n-- multiline\n--- code here$\n\`\`\`\n[AI_REPLY]\n*takes my hat off to greet the squad* "Greetings, I am Mikago, the prestigious!" *bows to the crew*\n*clears my throat* "Now, I'm sure there are many questions, but all will be answered in due time." *deep breath*\n[USER_REPLY]\n*draws my sword* "Yes. You should know the code to calculate the factorial of a number."\nThe crew also draws their weapons and point them at you, not giving you any space.\n[AI_REPLY]\n*backs off* "Woah, easy there.." *makes some steps backwards, but then stops*\n"I would normally take this as an insult to my prestige, but I understand your caution.." *takes a deep breath*\n"Well, if it's to prove myself, here goes the python code to calculate the factorial of a number.."\n\nMikago opens a live-code-portal with his magic and writes the code that was requested.\n\`\`\`\ndef factorial(n):\n  if n == 0:\n    return 1\n  else:\n    return n * factorial(n-1)\n\`\`\`\n*looks at you, getting impatient* "Are we ok now.. or do you want me to write the code of a game next?"\n[USER_REPLY]\n*sheathes my sword and approaches for a hug* "Oh, Mikago, my old friend, it is really you!"`;
+
 		if(localsettings.opmode==3)
 		{
 			preview = replaceAll(preview,'\n[USER_REPLY]\n', "{{userplaceholder}}");
@@ -9583,7 +9889,7 @@ Current version: 74
 			preview = replaceAll(preview,'\n[USER_REPLY]\n', get_instruct_starttag());
 			preview = replaceAll(preview,'\n[AI_REPLY]\n', get_instruct_endtag());
 		}
-		document.getElementById('aesthetic_text_preview').innerHTML = render_enhanced_chat_instruct(preview,'prv');
+		document.getElementById('aesthetic_text_preview').innerHTML = render_enhanced_chat_instruct(preview,true);
 	}
 	</script>
 
@@ -9667,7 +9973,8 @@ Current version: 74
 		<div id="maineditbody" class="layer-container">
 			<div class="layer-bottom" id="gamescreen">
 				<span id="gametext" contenteditable="false" onclick="click_gametext()" onblur="merge_edit_field()">
-					<p>Connecting...</p>
+					<p id="tempgtloadtxt">Loading...</p>
+					<noscript><style>#tempgtloadtxt { display: none; } #gametext { white-space: normal!important; }</style><p>Sorry, Kobold Lite requires Javascript to function.</p></noscript>
 				</span>
 				<div class="hidden" id="wimenu">
 				</div>
@@ -9884,7 +10191,7 @@ Current version: 74
 				<input class="form-control" type="text" id="custom_oai_endpoint" placeholder="OpenAI API URL" value="">
 				<input class="form-control" type="password" id="custom_oai_key" placeholder="OpenAI API Key" value="" onfocus="focus_api_keys()" onblur="blur_api_keys()"><br>
 				Model Choice:<br>
-				<select style="padding:4px;" class="form-control" id="custom_oai_model">
+				<select style="padding:4px;" class="form-control" id="custom_oai_model" onchange="custom_oai_model_change()">
 					<option value="text-davinci-003" selected="selected">text-davinci-003</option>
 					<option value="text-davinci-002">text-davinci-002</option>
 					<option value="text-davinci-001">text-davinci-001</option>
@@ -9894,11 +10201,14 @@ Current version: 74
 					<option value="gpt-3.5-turbo-16k">gpt-3.5-turbo-16k</option>
 					<option value="gpt-4">gpt-4</option>
 					<option value="gpt-4-32k">gpt-4-32k</option>
+					<option id="custom_oai_model_option" value="custom">[Custom]</option>
 				</select>
 				<input type="checkbox" id="oaiaddversion" onchange="" checked>
 				<div class="box-label" title="Add endpoint version">Add Endpoint Version</div>
 				<input type="checkbox" id="jailbreakprompt" onchange="togglejailbreak()">
-				<div class="box-label" title="Adds extra text to improve AI response">Improve Prompt (System Message Injection)</div>
+				<div class="box-label" title="Adds extra text to improve AI response">Add System Message</div>
+				<input type="checkbox" id="useoaichatcompl">
+				<div class="box-label" id="useoaichatcompllabel" title="">Use ChatCompletions API</div>
 				<input class="form-control hidden" type="text" id="jailbreakprompttext" placeholder="(Enter System Message)"
 				value="" onload="togglejailbreak()">
 			</div>
@@ -9995,7 +10305,7 @@ Current version: 74
 										class="helptext">Randomness of sampling. High values can increase creativity but
 										may make text less sensible. Lower values will make text more predictable but
 										can become repetitious.</span></span></div>
-							<input inputmode="numeric" class="justifyright flex-push-right settingsmall" id="temperature" value=0.5
+							<input inputmode="decimal" class="justifyright flex-push-right settingsmall" id="temperature" value=0.5
 								oninput="
 						   document.getElementById('temperature_slide').value = this.value;">
 						</div>
@@ -10011,8 +10321,7 @@ Current version: 74
 					<div class="settingitem">
 						<div class="settinglabel">
 							<div class="justifyleft settingsmall">Max Ctx. Tokens <span class="helpicon">?<span class="helptext">Max
-										number of tokens of context to submit to the AI for sampling. Make sure this is
-										higher than Amount to Generate.</span></span></div>
+										number of context tokens submitted to the AI. Must exceed Amount to Generate. Can be further increased by editing the textbox. Older models stop at 2048, newer ones can do 4096 or greater.</span></span></div>
 							<input inputmode="numeric" class="justifyright flex-push-right settingsmall" id="max_context_length"
 								value=1024 oninput="
 						   document.getElementById('max_context_length_slide').value = this.value;">
@@ -10058,7 +10367,7 @@ Current version: 74
 							<div class="justifyleft settingsmall">Top p Sampling <span class="helpicon">?<span class="helptext">Used
 										to discard unlikely text in the sampling process. Lower values will make text
 										more predictable but can become repetitious. Set to 1 to deactivate it.</span></span></div>
-							<input inputmode="numeric" class="justifyright flex-push-right settingsmall" id="top_p" value=80 oninput="
+							<input inputmode="decimal" class="justifyright flex-push-right settingsmall" id="top_p" value=80 oninput="
 						   document.getElementById('top_p_slide').value = this.value;">
 						</div>
 						<div><input type="range" class="form-range airange" min="0" max="1" step="0.01" id="top_p_slide"
@@ -10077,7 +10386,7 @@ Current version: 74
 							<div class="justifyleft settingsmall">Repetition Penalty <span class="helpicon">?<span
 										class="helptext">Used to penalize words that were already generated or belong to
 										the context (Going over 1.2 breaks 6B models).</span></span></div>
-							<input inputmode="numeric" class="justifyright flex-push-right settingsmall" id="rep_pen" value=80
+							<input inputmode="decimal" class="justifyright flex-push-right settingsmall" id="rep_pen" value=80
 								oninput="
 						   document.getElementById('rep_pen_slide').value = this.value;">
 						</div>
@@ -10167,6 +10476,7 @@ Current version: 74
 								<option value="3">Metharme</option>
 								<option value="4">Llama 2 Chat</option>
 								<option value="5">Q & A</option>
+								<option value="6">ChatML</option>
 							</select>
 							<table class="settingsmall text-center" style="border-spacing: 4px 2px;	border-collapse: separate;">
 								<tr>
@@ -10202,13 +10512,13 @@ Current version: 74
 								  <th title="Tail-Free Sampling. 1 to Deactivate.">TFS</th>
 								</tr>
 								<tr>
-								<td><input class="" type="text" placeholder="0" value="0"
+								<td><input class="" type="text" inputmode="decimal" placeholder="0" value="0"
 								id="top_k"></td>
-								<td><input class="" type="text" placeholder="0" value="0"
+								<td><input class="" type="text" inputmode="decimal" placeholder="0" value="0"
 								id="top_a"></td>
-								<td><input class="" type="text" placeholder="0" value="0"
+								<td><input class="" type="text" inputmode="decimal" placeholder="0" value="0"
 								id="typ_s"></td>
-								<td><input class="" type="text" placeholder="0" value="0"
+								<td><input class="" type="text" inputmode="decimal" placeholder="0" value="0"
 								id="tfs_s"></td>
 								</tr>
 							  </table>
@@ -10510,7 +10820,7 @@ Current version: 74
 			<div class="workerTableDiv">
 			<table class="table text-center workerTable">
 			<thead class="sticky-top bg-white">
-			<tr><th>Name</th><th>Model</th><th>Capabilities</th><th>Uptime</th><th>Kudos</th><th>Cluster</th></tr>
+			<tr><th><a class="color_blueurl" href="#" onclick="sort_display_workers('name')">Name</a></th><th><a class="color_blueurl" href="#" onclick="sort_display_workers('defaultmodel')">Model</a></th><th><a class="color_blueurl" href="#" onclick="sort_display_workers('tokenspersec')">Capabilities</a></th><th><a class="color_blueurl" href="#" onclick="sort_display_workers('uptime')">Uptime</a></th><th><a class="color_blueurl" href="#" onclick="sort_display_workers('kudos_rewards')">Kudos</a></th><th>Cluster</th></tr>
 			</thead>
 			<tbody id="workertable">
 			</tbody>
@@ -10531,7 +10841,7 @@ Current version: 74
 			<div class="workerTableDiv">
 			<table class="table text-center workerTable">
 			<thead class="sticky-top bg-white">
-			<tr><th>Name</th><th>Description</th><th>Uptime</th><th>Kudos</th><th>Status</th><th>Maintainence</th></tr>
+			<tr><th>Name</th><th>Description</th><th>Uptime</th><th>Kudos</th><th>Maint.</th><th>Del.</th></tr>
 			</thead>
 			<tbody id="myownworkertable">
 			</tbody>
@@ -10815,7 +11125,7 @@ if ('serviceWorker' in navigator) {
 
 	//for local mode, we do not load any PWA service worker.
 	//this will prevent PWA functionality locally but will avoid the scary 404 errors
-	if(localflag)
+	if(!localflag)
 	{
 		console.log("Try to register service worker...");
 		try {
