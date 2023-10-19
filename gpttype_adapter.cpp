@@ -1304,7 +1304,7 @@ generation_outputs gpttype_generate(const generation_inputs inputs, generation_o
     }
     if (params.top_k < 1)
     {
-        params.top_k = 32000; // typical vocabulary size of llama to ensure top K can be disabled
+        params.top_k = n_vocab; // all tokens in the vocabulary should be considered if top k is disabled
     }
     if (params.seed <= 0 || params.seed==0xFFFFFFFF)
     {
