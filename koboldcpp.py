@@ -184,6 +184,10 @@ def init_library():
         os.add_dll_directory(dir_path)
         os.add_dll_directory(abs_path)
         os.add_dll_directory(os.getcwd())
+        if libname == lib_hipblas and "HIP_PATH" in os.environ:
+            os.add_dll_directory(os.path.join(os.environ["HIP_PATH"], "bin"))
+            if args.debugmode == 1:
+                print(f"HIP/ROCm SDK at {os.environ['HIP_PATH']} included in .DLL load path")
     handle = ctypes.CDLL(os.path.join(dir_path, libname))
 
     handle.load_model.argtypes = [load_model_inputs]
@@ -356,12 +360,12 @@ def bring_terminal_to_foreground():
 #################################################################
 friendlymodelname = "concedo/koboldcpp"  # local kobold api apparently needs a hardcoded known HF model name
 maxctx = 2048
-maxhordectx = 1024
+maxhordectx = 2048
 maxhordelen = 256
 modelbusy = threading.Lock()
 requestsinqueue = 0
 defaultport = 5001
-KcppVersion = "1.46.1"
+KcppVersion = "1.47.1"
 showdebug = True
 showsamplerwarning = True
 showmaxctxwarning = True
@@ -369,6 +373,8 @@ session_kudos_earned = 0
 session_jobs = 0
 session_starttime = None
 exitcounter = 0
+punishcounter = 0 #causes a timeout if too many errors
+rewardcounter = 0 #reduces error counts for successful jobs
 totalgens = 0
 currentusergenkey = "" #store a special key so polled streaming works even in multiuser
 args = None #global args
@@ -412,16 +418,34 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
             elif api_format==4:
                 # translate openai chat completion messages format into one big string.
                 messages_array = genparams.get('messages', [])
+                adapter_obj = genparams.get('adapter', {})
                 messages_string = ""
+                system_message_start = adapter_obj.get("system_start", "\n### Instruction:\n")
+                system_message_end = adapter_obj.get("system_end", "")
+                user_message_start = adapter_obj.get("user_start", "\n### Instruction:\n")
+                user_message_end = adapter_obj.get("user_end", "")
+                assistant_message_start = adapter_obj.get("assistant_start", "\n### Response:\n")
+                assistant_message_end = adapter_obj.get("assistant_end", "")
+
                 for message in messages_array:
                     if message['role'] == "system":
-                        messages_string+="\n### Instruction:\n"
+                        messages_string += system_message_start
                     elif message['role'] == "user":
-                        messages_string+="\n### Instruction:\n"
+                        messages_string += user_message_start
                     elif message['role'] == "assistant":
-                        messages_string+="\n### Response:\n"
-                    messages_string+=message['content']
-                messages_string += "\n### Response:\n"
+                        messages_string += assistant_message_start
+
+                    messages_string += message['content']
+
+                    if message['role'] == "system":
+                        messages_string += system_message_end
+                    elif message['role'] == "user":
+                        messages_string += user_message_end
+                    elif message['role'] == "assistant":
+                        messages_string += assistant_message_end
+
+                messages_string += assistant_message_start
+
                 genparams["prompt"] = messages_string
                 frqp = genparams.get('frequency_penalty', 0.1)
                 scaled_rep_pen = genparams.get('presence_penalty', frqp) + 1
@@ -497,12 +521,13 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
     async def handle_sse_stream(self, api_format):
         global friendlymodelname
         self.send_response(200)
-        self.send_header("Cache-Control", "no-cache")
-        self.send_header("Connection", "keep-alive")
-        self.end_headers(force_json=True, sse_stream_flag=True)
+        self.send_header("cache-control", "no-cache")
+        self.send_header("connection", "keep-alive")
+        self.end_headers(content_type='text/event-stream')
 
         current_token = 0
         incomplete_token_buffer = bytearray()
+        await asyncio.sleep(0.1) #anti race condition, prevent check from overtaking generate
         while True:
             streamDone = handle.has_finished() #exit next loop on done
             tokenStr = ""
@@ -566,10 +591,10 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
         global maxctx, maxhordelen, friendlymodelname, KcppVersion, totalgens
         self.path = self.path.rstrip('/')
         response_body = None
-        force_json = False
+        content_type = 'application/json'
 
         if self.path in ["", "/?"] or self.path.startswith(('/?','?')): #it's possible for the root url to have ?params without /
-
+            content_type = 'text/html'
             if self.embedded_kailite is None:
                 response_body = (f"Embedded Kobold Lite is not found.<br>You will have to connect via the main KoboldAI client, or <a href='https://lite.koboldai.net?local=1&port={self.port}'>use this URL</a> to connect.").encode()
             else:
@@ -615,9 +640,9 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
 
         elif self.path.endswith('/v1/models'):
             response_body = (json.dumps({"object":"list","data":[{"id":friendlymodelname,"object":"model","created":1,"owned_by":"koboldcpp","permission":[],"root":"koboldcpp"}]}).encode())
-            force_json = True
 
         elif self.path=="/api":
+            content_type = 'text/html'
             if self.embedded_kcpp_docs is None:
                 response_body = (f"KoboldCpp partial API reference can be found at the wiki: https://github.com/LostRuins/koboldcpp/wiki").encode()
             else:
@@ -625,41 +650,40 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
         elif self.path.endswith(('/api')) or self.path.endswith(('/api/v1')):
             self.path = "/api"
             self.send_response(302)
-            self.send_header("Location", self.path)
-            self.end_headers()
+            self.send_header("location", self.path)
+            self.end_headers(content_type='text/html')
             return None
 
         if response_body is None:
             self.send_response(404)
-            self.end_headers()
+            self.end_headers(content_type='text/html')
             rp = 'Error: HTTP Server is running, but this endpoint does not exist. Please check the URL.'
             self.wfile.write(rp.encode())
         else:
             self.send_response(200)
-            self.send_header('Content-Length', str(len(response_body)))
-            self.end_headers(force_json=force_json)
+            self.send_header('content-length', str(len(response_body)))
+            self.end_headers(content_type=content_type)
             self.wfile.write(response_body)
         return
 
     def do_POST(self):
         global modelbusy, requestsinqueue, currentusergenkey, totalgens
-        content_length = int(self.headers['Content-Length'])
+        content_length = int(self.headers['content-length'])
         body = self.rfile.read(content_length)
         self.path = self.path.rstrip('/')
-        force_json = False
         if self.path.endswith(('/api/extra/tokencount')):
             try:
                 genparams = json.loads(body)
                 countprompt = genparams.get('prompt', "")
                 count = handle.token_count(countprompt.encode("UTF-8"))
                 self.send_response(200)
-                self.end_headers()
+                self.end_headers(content_type='application/json')
                 self.wfile.write(json.dumps({"value": count}).encode())
 
-            except ValueError as e:
+            except Exception as e:
                 utfprint("Count Tokens - Body Error: " + str(e))
                 self.send_response(400)
-                self.end_headers()
+                self.end_headers(content_type='application/json')
                 self.wfile.write(json.dumps({"value": -1}).encode())
             return
 
@@ -667,19 +691,22 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
             multiuserkey = ""
             try:
                 tempbody = json.loads(body)
-                multiuserkey = tempbody.get('genkey', "")
-            except ValueError as e:
+                if isinstance(tempbody, dict):
+                    multiuserkey = tempbody.get('genkey', "")
+            except Exception as e:
                 multiuserkey = ""
                 pass
 
-            if (multiuserkey!="" and multiuserkey==currentusergenkey) or requestsinqueue==0:
+            if (multiuserkey=="" and requestsinqueue==0) or (multiuserkey!="" and multiuserkey==currentusergenkey):
                 ag = handle.abort_generate()
-                time.sleep(0.3) #short delay before replying
+                time.sleep(0.1) #short delay before replying
                 self.send_response(200)
-                self.end_headers()
+                self.end_headers(content_type='application/json')
                 self.wfile.write(json.dumps({"success": ("true" if ag else "false")}).encode())
                 print("\nGeneration Aborted")
             else:
+                self.send_response(200)
+                self.end_headers(content_type='application/json')
                 self.wfile.write(json.dumps({"success": "false"}).encode())
             return
 
@@ -688,17 +715,18 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
             multiuserkey = ""
             try:
                 tempbody = json.loads(body)
-                multiuserkey = tempbody.get('genkey', "")
-            except ValueError as e:
+                if isinstance(tempbody, dict):
+                    multiuserkey = tempbody.get('genkey', "")
+            except Exception as e:
                 multiuserkey = ""
                 pass
 
             if totalgens>0:
-                if (multiuserkey!="" and multiuserkey==currentusergenkey) or requestsinqueue==0:
+                if (multiuserkey=="" and requestsinqueue==0) or (multiuserkey!="" and multiuserkey==currentusergenkey):
                     pendtxt = handle.get_pending_output()
                     pendtxtStr = ctypes.string_at(pendtxt).decode("UTF-8","ignore")
             self.send_response(200)
-            self.end_headers()
+            self.end_headers(content_type='application/json')
             self.wfile.write(json.dumps({"results": [{"text": pendtxtStr}]}).encode())
             return
 
@@ -708,7 +736,7 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
             requestsinqueue += 1
         if not modelbusy.acquire(blocking=reqblocking):
             self.send_response(503)
-            self.end_headers()
+            self.end_headers(content_type='application/json')
             self.wfile.write(json.dumps({"detail": {
                     "msg": "Server is busy; please try again later.",
                     "type": "service_unavailable",
@@ -734,17 +762,15 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
 
             if self.path.endswith('/v1/completions'):
                 api_format = 3
-                force_json = True
 
             if self.path.endswith('/v1/chat/completions'):
                 api_format = 4
-                force_json = True
 
             if api_format > 0:
                 genparams = None
                 try:
                     genparams = json.loads(body)
-                except ValueError as e:
+                except Exception as e:
                     utfprint("Body Err: " + str(body))
                     return self.send_response(503)
 
@@ -764,8 +790,8 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
                     # Headers are already sent when streaming
                     if not sse_stream_flag:
                         self.send_response(200)
-                        self.end_headers(force_json=force_json)
-                    self.wfile.write(json.dumps(gen).encode())
+                        self.end_headers(content_type='application/json')
+                        self.wfile.write(json.dumps(gen).encode())
                 except:
                     print("Generate: The response could not be sent, maybe connection was terminated?")
                 return
@@ -773,27 +799,23 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
             modelbusy.release()
 
         self.send_response(404)
-        self.end_headers()
+        self.end_headers(content_type='text/html')
 
 
     def do_OPTIONS(self):
         self.send_response(200)
-        self.end_headers()
+        self.end_headers(content_type='text/html')
 
     def do_HEAD(self):
         self.send_response(200)
-        self.end_headers()
+        self.end_headers(content_type='text/html')
 
-    def end_headers(self, force_json=False, sse_stream_flag=False):
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', '*')
-        self.send_header('Access-Control-Allow-Headers', '*')
-        if ("/api" in self.path and self.path!="/api") or force_json:
-            if sse_stream_flag:
-                self.send_header('Content-type', 'text/event-stream')
-            self.send_header('Content-type', 'application/json')
-        else:
-            self.send_header('Content-type', 'text/html')
+    def end_headers(self, content_type=None):
+        self.send_header('access-control-allow-origin', '*')
+        self.send_header('access-control-allow-methods', '*')
+        self.send_header('access-control-allow-headers', '*, Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Client-Agent, X-Fields, Content-Type, Authorization, X-Requested-With, X-HTTP-Method-Override, apikey, genkey')
+        if content_type is not None:
+            self.send_header('content-type', content_type)
         return super(ServerRequestHandler, self).end_headers()
 
 
@@ -1017,7 +1039,8 @@ def show_new_gui():
     mmq_var = ctk.IntVar(value=1)
     blas_threads_var = ctk.StringVar()
     blas_size_var = ctk.IntVar()
-    version_var =ctk.StringVar(value="0")
+    version_var = ctk.StringVar(value="0")
+    tensor_split_str_vars = ctk.StringVar(value="")
 
     smartcontext = ctk.IntVar()
     context_var = ctk.IntVar()
@@ -1069,11 +1092,15 @@ def show_new_gui():
             quick_lowvram_box.grid(row=4, column=0, padx=8, pady=1,  stick="nw")
             mmq_box.grid(row=4, column=1, padx=8, pady=1,  stick="nw")
             quick_mmq_box.grid(row=4, column=1, padx=8, pady=1,  stick="nw")
+            tensor_split_label.grid(row=6, column=0, padx = 8, pady=1, stick="nw")
+            tensor_split_entry.grid(row=6, column=1, padx=8, pady=1, stick="nw")
         else:
             lowvram_box.grid_forget()
             quick_lowvram_box.grid_forget()
             mmq_box.grid_forget()
             quick_mmq_box.grid_forget()
+            tensor_split_label.grid_forget()
+            tensor_split_entry.grid_forget()
 
         if index == "Use CLBlast" or index == "Use CuBLAS" or index == "Use hipBLAS (ROCm)":
             gpu_layers_label.grid(row=5, column=0, padx = 8, pady=1, stick="nw")
@@ -1085,6 +1112,7 @@ def show_new_gui():
             gpu_layers_entry.grid_forget()
             quick_gpu_layers_label.grid_forget()
             quick_gpu_layers_entry.grid_forget()
+
 
     # presets selector
     makelabel(quick_tab, "Presets:", 1)
@@ -1118,7 +1146,7 @@ def show_new_gui():
     makeslider(quick_tab, "Context Size:", contextsize_text, context_var, 0, len(contextsize_text)-1, 30, set=2)
 
     # load model
-    makefileentry(quick_tab, "Model:", "Select GGML Model File", model_var, 40, 170,filetypes=[("GGML Model Files", "*.gguf;*.bin;*.ggml")])
+    makefileentry(quick_tab, "Model:", "Select GGML Model File", model_var, 40, 170)
 
     # Hardware Tab
     hardware_tab = tabcontent["Hardware"]
@@ -1137,6 +1165,7 @@ def show_new_gui():
     gpu_selector_box = ctk.CTkComboBox(hardware_tab, values=["1","2","3","4"], width=60, variable=gpu_choice_var, state="readonly")
     CUDA_gpu_selector_box = ctk.CTkComboBox(hardware_tab, values=["1","2","3","4", "All"], width=60, variable=gpu_choice_var, state="readonly")
     gpu_layers_entry,gpu_layers_label = makelabelentry(hardware_tab,"GPU Layers:", gpulayers_var, 5, 50)
+    tensor_split_entry,tensor_split_label = makelabelentry(hardware_tab, "Tensor Split:", tensor_split_str_vars, 6, 80)
     lowvram_box = makecheckbox(hardware_tab,  "Low VRAM", lowvram_var, 4,0)
     mmq_box = makecheckbox(hardware_tab,  "Use QuantMatMul (mmq)", mmq_var, 4,1)
 
@@ -1185,7 +1214,7 @@ def show_new_gui():
     # Model Tab
     model_tab = tabcontent["Model"]
 
-    makefileentry(model_tab, "Model:", "Select GGML Model File", model_var, 1, filetypes=[("GGML Model Files", "*.gguf;*.bin;*.ggml")])
+    makefileentry(model_tab, "Model:", "Select GGML Model File", model_var, 1)
     makefileentry(model_tab, "Lora:", "Select Lora File",lora_var, 3)
     makefileentry(model_tab, "Lora Base:", "Select Lora Base File", lora_base_var, 5)
 
@@ -1265,6 +1294,12 @@ def show_new_gui():
             args.noavx2 = True
             args.noblas = True
             args.nommap = True
+        if tensor_split_str_vars.get()!="":
+            tssv = tensor_split_str_vars.get()
+            if "," in tssv:
+                args.tensor_split = [float(x) for x in tssv.split(",")]
+            else:
+                args.tensor_split = [float(x) for x in tssv.split(" ")]
 
         args.blasthreads = None if blas_threads_var.get()=="" else int(blas_threads_var.get())
 
@@ -1329,6 +1364,9 @@ def show_new_gui():
                 runopts_var.set(openblas_option)
         if "gpulayers" in dict and dict["gpulayers"]:
             gpulayers_var.set(dict["gpulayers"])
+        if "tensor_split" in dict and dict["tensor_split"]:
+            tssep = ','.join(map(str, dict["tensor_split"]))
+            tensor_split_str_vars.set(tssep)
         if "blasthreads" in dict and dict["blasthreads"]:
             blas_threads_var.set(str(dict["blasthreads"]))
         else:
@@ -1447,7 +1485,7 @@ def show_gui_msgbox(title,message):
 def run_horde_worker(args, api_key, worker_name):
     import urllib.request
     from datetime import datetime
-    global friendlymodelname, maxhordectx, maxhordelen, exitcounter, modelbusy, session_starttime
+    global friendlymodelname, maxhordectx, maxhordelen, exitcounter, punishcounter, modelbusy, session_starttime
     epurl = f"http://localhost:{args.port}"
     if args.host!="":
         epurl = f"http://{args.host}:{args.port}"
@@ -1456,10 +1494,11 @@ def run_horde_worker(args, api_key, worker_name):
         print(f"{datetime.now().strftime('[%H:%M:%S]')} " + txt)
 
     def submit_completed_generation(url, jobid, sessionstart, submit_dict):
-        global exitcounter, session_kudos_earned, session_jobs
+        global exitcounter, punishcounter, session_kudos_earned, session_jobs, rewardcounter
         reply = make_url_request(url, submit_dict)
         if not reply:
             exitcounter += 1
+            punishcounter += 1
             print_with_time(f"Error, Job submit failed.")
         else:
             reward = reply["reward"]
@@ -1467,12 +1506,17 @@ def run_horde_worker(args, api_key, worker_name):
             session_jobs += 1
             curtime = datetime.now()
             elapsedtime=curtime-sessionstart
-            hrs = elapsedtime.seconds // 3600
+            hrs = int(elapsedtime.total_seconds()) // 3600
             mins = elapsedtime.seconds // 60 % 60
             secs = elapsedtime.seconds % 60
             elapsedtimestr = f"{hrs:03d}h:{mins:02d}m:{secs:02d}s"
-            earnrate = session_kudos_earned/(elapsedtime.seconds/3600)
+            earnrate = session_kudos_earned/(elapsedtime.total_seconds()/3600)
             print_with_time(f'Submitted {jobid} and earned {reward:.0f} kudos\n[Total:{session_kudos_earned:.0f} kudos, Time:{elapsedtimestr}, Jobs:{session_jobs}, EarnRate:{earnrate:.0f} kudos/hr]')
+            rewardcounter += 1
+            if rewardcounter > 50:
+                rewardcounter = 0
+                if exitcounter > 5:
+                    exitcounter -= 1
 
     def make_url_request(url, data, method='POST'):
         try:
@@ -1481,7 +1525,7 @@ def run_horde_worker(args, api_key, worker_name):
             if method=='POST':
                 json_payload = json.dumps(data).encode('utf-8')
                 request = urllib.request.Request(url, data=json_payload, headers=headers, method=method)
-                request.add_header('Content-Type', 'application/json')
+                request.add_header('content-type', 'application/json')
             else:
                 request = urllib.request.Request(url, headers=headers, method=method)
             response_data = ""
@@ -1508,16 +1552,23 @@ def run_horde_worker(args, api_key, worker_name):
     print(f"===\nEmbedded Horde Worker '{worker_name}' Starting...\n(To use your own KAI Bridge/Scribe worker instead, don't set your API key)")
     BRIDGE_AGENT = f"KoboldCppEmbedWorker:2:https://github.com/LostRuins/koboldcpp"
     cluster = "https://horde.koboldai.net"
-    while exitcounter < 10:
+    while exitcounter < 35:
         time.sleep(3)
         readygo = make_url_request(f'{epurl}/api/v1/info/version', None,'GET')
         if readygo:
             print_with_time(f"Embedded Horde Worker '{worker_name}' is started.")
             break
 
-    while exitcounter < 10:
+    while exitcounter < 40:
         currentjob_attempts = 0
         current_generation = None
+
+        if punishcounter >= 8:
+            punishcounter = 0
+            penaltymult = (1 + (exitcounter//10))
+            print_with_time(f"Horde Worker Paused for {penaltymult*10} min - Too many errors. It will resume automatically, but you should restart it.")
+            print_with_time(f"Caution: Too many failed jobs may lead to entering maintenance mode.")
+            time.sleep(600 * penaltymult)
 
         #first, make sure we are not generating
         if modelbusy.locked():
@@ -1537,8 +1588,9 @@ def run_horde_worker(args, api_key, worker_name):
         pop = make_url_request(f'{cluster}/api/v2/generate/text/pop',gen_dict)
         if not pop:
             exitcounter += 1
-            print_with_time(f"Failed to fetch job from {cluster}. Waiting 5 seconds...")
-            time.sleep(5)
+            punishcounter += 1
+            print_with_time(f"Failed to fetch job from {cluster}. Waiting 10 seconds...")
+            time.sleep(10)
             continue
         if not pop["id"]:
             slp = (1 if sleepy_counter<10 else (2 if sleepy_counter<25 else 3))
@@ -1555,7 +1607,7 @@ def run_horde_worker(args, api_key, worker_name):
         print_with_time(f"Job received from {cluster} for {current_payload.get('max_length',80)} tokens and {current_payload.get('max_context_length',1024)} max context. Starting generation...")
 
         #do gen
-        while exitcounter < 10:
+        while exitcounter < 35:
             if not modelbusy.locked():
                 current_generation = make_url_request(f'{epurl}/api/v1/generate', current_payload)
                 if current_generation:
@@ -1879,5 +1931,11 @@ if __name__ == '__main__':
     parser.add_argument("--onready", help="An optional shell command to execute after the model has been loaded.", type=str, default="",nargs=1)
     parser.add_argument("--multiuser", help="Runs in multiuser mode, which queues incoming requests instead of blocking them.", action='store_true')
     parser.add_argument("--foreground", help="Windows only. Sends the terminal to the foreground every time a new prompt is generated. This helps avoid some idle slowdown issues.", action='store_true')
+
+    # #deprecated hidden args. they do nothing. do not use
+    # parser.add_argument("--psutil_set_threads", action='store_true', help=argparse.SUPPRESS)
+    # parser.add_argument("--stream", action='store_true', help=argparse.SUPPRESS)
+    # parser.add_argument("--unbantokens", action='store_true', help=argparse.SUPPRESS)
+    # parser.add_argument("--usemirostat", action='store_true', help=argparse.SUPPRESS)
 
     main(parser.parse_args(),start_server=True)

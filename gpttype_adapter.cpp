@@ -159,7 +159,7 @@ static void TokenizeString(const std::string & str_to_tokenize, std::vector<int>
         }
         else
         {
-            output_tokens = ::llama_tokenize(llama_ctx_v4, str_to_tokenize, true);
+            output_tokens = ::llama_tokenize(llama_ctx_v4, str_to_tokenize, true, true);
         }
     }
     else
@@ -803,6 +803,14 @@ ModelLoadResult gpttype_load_model(const load_model_inputs inputs, FileFormat in
         }
         #endif
 
+        //compat for old falcon
+        if(file_format_meta.fileversion==1 && file_format==FileFormat::GGUF_FALCON)
+        {
+            //apply compat fix
+            printf("\nUsing older tokenizer for Falcon...");
+            OldBPETokenizerMode = true;
+        }
+
         llama_model * llamamodel = llama_load_model_from_file(modelname.c_str(), model_params);
         llama_ctx_v4 = llama_new_context_with_model(llamamodel, llama_ctx_params);
 
@@ -1304,7 +1312,7 @@ generation_outputs gpttype_generate(const generation_inputs inputs, generation_o
     }
     if (params.top_k < 1)
     {
-        params.top_k = 120; //to disable top_k we actually need to increase this value to a very high number
+        params.top_k = n_vocab; // all tokens in the vocabulary should be considered if top k is disabled
     }
     if (params.seed <= 0 || params.seed==0xFFFFFFFF)
     {
@@ -1768,7 +1776,7 @@ generation_outputs gpttype_generate(const generation_inputs inputs, generation_o
     int realnpredict = params.n_predict-stopper_unused_tokens;
     float pt2 = (time2*1000.0/(realnpredict==0?1:realnpredict));
     float tokens_per_second = (realnpredict == 0 ? 0 : realnpredict / (time1 + time2));
-    printf("\nTime Taken - Processing:%.1fs (%.0fms/T), Generation:%.1fs (%.0fms/T), Total:%.1fs (%.1fT/s)", time1, pt1, time2, pt2, (time1 + time2), tokens_per_second);
+    printf("\nContextLimit: %d/%d, Processing:%.1fs (%.0fms/T), Generation:%.1fs (%.0fms/T), Total:%.1fs (%.1fT/s)",current_context_tokens.size(),nctx, time1, pt1, time2, pt2, (time1 + time2), tokens_per_second);
     fflush(stdout);
     output.status = 1;
     generation_finished = true;
