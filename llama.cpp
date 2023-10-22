@@ -7622,7 +7622,7 @@ void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * c
     }
 }
 
-void llama_sample_gini(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
+void llama_sample_hhi(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
     const int64_t t_start_sample_us = ggml_time_us();
 
     llama_sample_softmax(ctx, candidates_p);
@@ -7636,22 +7636,22 @@ void llama_sample_gini(struct llama_context * ctx, llama_token_data_array * cand
         printf("Token %zu: %f%%\n", i+1, candidates_p->data[i].p * 100.0f);
     }
 
-    // Calculate Gini coefficient of the softmax probabilities
-    float gini = 0.0f;
+    // Calculate HHI of the softmax probabilities
+    float hhi = 0.0f;
     for (size_t i = 0; i < candidates_p->size; ++i) {
         float prob = candidates_p->data[i].p;
-        gini += prob * prob;
+        hhi += prob * prob;
     }
 
-    gini = 1.0f - gini;  // Invert the Gini coefficient
+    hhi = 1.0f - hhi;  // Invert the HHI
 
-    // Map the inverted Gini to the desired temperature range using the power function
-    float dyn_temp = minTemp + (maxTemp - minTemp) * powf(gini, ExponentVal);
+    // Map the inverted hhi to the desired temperature range using the power function
+    float dyn_temp = minTemp + (maxTemp - minTemp) * powf(hhi, ExponentVal);
 
     printf("Your maxTemp value is: %f\n", maxTemp);
 
     // Print the variables
-    printf("(Inverted) Gini Coefficient: %f\n", gini);
+    printf("(Inverted) HHI: %f\n", hhi);
     printf("Exponent: %f\n", ExponentVal);
     printf("Dynamic Temperature (dyn_temp): %f\n", dyn_temp);
 
@@ -7761,7 +7761,7 @@ void llama_sample_temperature(struct llama_context * ctx, llama_token_data_array
     } else if (temp >= 1.83 && temp <= 1.85) {
         llama_sample_entropy(ctx, candidates_p, temp);
     } else if (temp >= 1.99 && temp <= 2.01) {
-        llama_sample_gini(ctx, candidates_p, temp);
+        llama_sample_hhi(ctx, candidates_p, temp);
     } else {
         // Default sampling method
         llama_sample_temp(ctx, candidates_p, temp);
