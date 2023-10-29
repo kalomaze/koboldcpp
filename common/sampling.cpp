@@ -79,6 +79,7 @@ llama_token llama_sampling_sample(
     const float   temp            = params.temp;
     const int32_t top_k           = params.top_k <= 0 ? n_vocab : params.top_k;
     const float   top_p           = params.top_p;
+    const float   min_p           = params.min_p;
     const float   tfs_z           = params.tfs_z;
     const float   typical_p       = params.typical_p;
     const int32_t repeat_last_n   = params.repeat_last_n < 0 ? n_ctx : params.repeat_last_n;
@@ -158,6 +159,7 @@ llama_token llama_sampling_sample(
             llama_sample_tail_free(ctx_main, &cur_p, tfs_z,     min_keep);
             llama_sample_typical  (ctx_main, &cur_p, typical_p, min_keep);
             llama_sample_top_p    (ctx_main, &cur_p, top_p,     min_keep);
+            llama_sample_min_p    (ctx_main, &cur_p, min_p,     min_keep);
             llama_sample_temp     (ctx_main, &cur_p, temp);
 
             id = llama_sample_token(ctx_main, &cur_p);
