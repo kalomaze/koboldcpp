@@ -1016,6 +1016,7 @@ static json format_generation_settings(llama_server_context &llama)
         {"temp", sparams.temp},
         {"top_k", sparams.top_k},
         {"top_p", sparams.top_p},
+        {"min_p", sparams.min_p},
         {"tfs_z", sparams.tfs_z},
         {"typical_p", sparams.typical_p},
         {"repeat_last_n", sparams.repeat_last_n},
@@ -1136,6 +1137,7 @@ static void parse_options_completion(const json &body, llama_server_context &lla
     llama.params.n_predict = json_value(body, "n_predict", default_params.n_predict);
     sparams.top_k = json_value(body, "top_k", default_sparams.top_k);
     sparams.top_p = json_value(body, "top_p", default_sparams.top_p);
+    sparams.min_p = json_value(body, "min_p", default_sparams.min_p);
     sparams.tfs_z = json_value(body, "tfs_z", default_sparams.tfs_z);
     sparams.typical_p = json_value(body, "typical_p", default_sparams.typical_p);
     sparams.repeat_last_n = json_value(body, "repeat_last_n", default_sparams.repeat_last_n);

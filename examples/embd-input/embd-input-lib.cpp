@@ -135,6 +135,7 @@ llama_token sampling_id(struct MyModel* mymodel) {
     const float   temp            = sparams.temp;
     const int32_t top_k           = sparams.top_k <= 0 ? llama_n_vocab(llama_get_model(ctx)) : sparams.top_k;
     const float   top_p           = sparams.top_p;
+    const float   min_p           = sparams.min_p;
     const float   tfs_z           = sparams.tfs_z;
     const float   typical_p       = sparams.typical_p;
     // const int32_t repeat_last_n   = params.repeat_last_n < 0 ? n_ctx : params.repeat_last_n;
@@ -196,6 +197,7 @@ llama_token sampling_id(struct MyModel* mymodel) {
                 llama_sample_tail_free(ctx, &candidates_p, tfs_z, 1);
                 llama_sample_typical(ctx, &candidates_p, typical_p, 1);
                 llama_sample_top_p(ctx, &candidates_p, top_p, 1);
+                llama_sample_min_p(ctx, &candidates_p, min_p, 1);
                 llama_sample_temp(ctx, &candidates_p, temp);
                 id = llama_sample_token(ctx, &candidates_p);
             }

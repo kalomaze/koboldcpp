@@ -13,6 +13,7 @@ enum samplers
     KCPP_SAMPLER_TYP=4,
     KCPP_SAMPLER_TEMP=5,
     KCPP_SAMPLER_REP_PEN=6,
+    KCPP_SAMPLER_MIN_P=7,
     KCPP_SAMPLER_MAX
 };
 enum stop_reason
@@ -59,6 +60,7 @@ struct generation_inputs
     const int top_k;
     const float top_a = 0.0f;
     const float top_p;
+    const float min_p;
     const float typical_p;
     const float tfs;
     const float rep_pen;
