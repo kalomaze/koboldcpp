@@ -14,7 +14,7 @@ import argparse
 import json, sys, http.server, time, asyncio, socket, threading
 from concurrent.futures import ThreadPoolExecutor
 
-sampler_order_max = 7
+sampler_order_max = 8
 stop_token_max = 16
 ban_token_max = 16
 tensor_split_max = 16
