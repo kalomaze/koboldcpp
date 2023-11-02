@@ -6947,6 +6947,15 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
 
     const int64_t t_start_sample_us = ggml_time_us();
 
+    // Print the top tokens before filtering
+    printf("Top 10 tokens before filtering:\n");
+    for (size_t i = 0; i < candidates->size && i < 10; ++i) {  // Adjust 10 to however many top tokens you want to display
+        printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);  // Multiplying by 100 to convert to percentage
+    }
+
+    float multiplication_factor = candidates->data[0].p;  // Assuming the probabilities are sorted
+    printf("Highest scoring token probability (multiplication factor): %f\n", multiplication_factor);
+
     float scale = candidates->data[0].p; // scale by max prob
     size_t i = 1; // first token always matches
 
@@ -6956,8 +6965,17 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
         }
     }
 
+    // Debug information about how many tokens were retained
+    printf("Number of tokens that met the multiplied_min_p condition: %d\n", count_qualifying_tokens);
+
     // Resize the output vector to keep only the matching tokens
     candidates->size = i;
+
+    // Print the top tokens before filtering
+    printf("Remaining (top ten) tokens after filtering:\n");
+    for (size_t i = 0; i < candidates->size && i < 10; ++i) {  // Adjust 10 to however many top tokens you want to display
+        printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);  // Multiplying by 100 to convert to percentage
+    }
 
     if (ctx) {
         ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
@@ -7171,23 +7189,39 @@ void llama_sample_hhi(struct llama_context * ctx, llama_token_data_array * candi
     float minTemp, maxTemp, ExponentVal;
     read_or_write_temp(&minTemp, &maxTemp, &ExponentVal);
 
-    temp = maxTemp;
-
     // Print the top 10 logits probabilities
     printf("\nTop 10 Logits Probabilities (in percentages):\n");
     for (size_t i = 0; i < 10 && i < candidates_p->size; ++i) {
         printf("Token %zu: %f%%\n", i+1, candidates_p->data[i].p * 100.0f);
     }
 
+    // Calculate HHI of the softmax probabilities
+    float hhi = 0.0f;
+    for (size_t i = 0; i < candidates_p->size; ++i) {
+        float prob = candidates_p->data[i].p;
+        hhi += prob * prob;
+    }
+
+    hhi = 1.0f - hhi;  // Invert the HHI
+
+    // Map the inverted hhi to the desired temperature range using the power function
+    float dyn_temp = minTemp + (maxTemp - minTemp) * powf(hhi, ExponentVal);
+
+    printf("Your maxTemp value is: %f\n", maxTemp);
+
+    // Print the variables
+    printf("(Inverted) HHI: %f\n", hhi);
+    printf("Exponent: %f\n", ExponentVal);
+    printf("Dynamic Temperature (dyn_temp): %f\n", dyn_temp);
+
+    // Apply the dynamically calculated temperature scaling
+    for (size_t i = 0; i < candidates_p->size; ++i) {
+        candidates_p->data[i].logit /= dyn_temp;
+    }
+
     if (ctx) {
         ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
     }
-
-    printf("\nLet's scale the temp...\n");
-    for (size_t i = 0; i < candidates_p->size; ++i) {
-        candidates_p->data[i].logit /= temp;
-    }
-
 }
 
 void llama_sample_greedy_dynamic_temp(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
