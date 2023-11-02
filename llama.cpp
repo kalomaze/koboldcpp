@@ -6965,9 +6965,6 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
         }
     }
 
-    // Debug information about how many tokens were retained
-    printf("Number of tokens that met the multiplied_min_p condition: %d\n", count_qualifying_tokens);
-
     // Resize the output vector to keep only the matching tokens
     candidates->size = i;
 
