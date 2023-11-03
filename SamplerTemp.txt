@@ -1,0 +1,3 @@
+minTemp = 0.0
+maxTemp = 2.0
+ExponentVal = 1.0
