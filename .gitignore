@@ -111,5 +111,3 @@ koboldcpp_hipblas.so
 
 # Jetbrains idea folder
 .idea/
-/cmake-build-debug/
-/cmake-build-release/
