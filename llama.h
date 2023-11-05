@@ -627,7 +627,12 @@ extern "C" {
     LLAMA_API DEPRECATED(void llama_sample_temperature(
                 struct llama_context * ctx,
               llama_token_data_array * candidates,
-                               float   temp),
+                               float   temp,
+                               float   minTemp,
+                               float   maxTemp,
+                               float   k,
+                               float   sigmoidCenterPoint,
+                               float   exponentVal),
             "use llama_sample_temp instead");
 
     /// @details Apply constraints from grammar

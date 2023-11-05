@@ -7439,39 +7439,6 @@ struct llama_grammar * llama_grammar_copy(const struct llama_grammar * grammar) 
 //
 // sampling
 //
-
-void read_or_write_temp(float* minTemp, float* maxTemp, float* ExponentVal) {
-    std::ifstream infile("SamplerTemp.txt");
-    if (!infile.good()) {
-        // File doesn't exist, create it with default values
-        std::ofstream outfile("SamplerTemp.txt");
-        outfile << "minTemp = 0.0\n";
-        outfile << "maxTemp = 2.0\n";
-        outfile << "ExponentVal = 2.0\n";
-        outfile.close();
-
-        // Set default values
-        *minTemp = 0.0f;
-        *maxTemp = 2.0f;
-        *ExponentVal = 2.0f;
-
-    } else {
-        // File exists, read the values from it
-        std::string line;
-        while (getline(infile, line)) {
-            std::istringstream iss(line);
-            std::string key, equals;
-            float value;
-            if (iss >> key >> equals >> value) {
-                if (key == "minTemp") *minTemp = value;
-                else if (key == "maxTemp") *maxTemp = value;
-                else if (key == "ExponentVal") *ExponentVal = value; // Add this line
-            }
-        }
-        infile.close();
-    }
-}
-
 void llama_set_rng_seed(struct llama_context * ctx, uint32_t seed) {
     if (seed == LLAMA_DEFAULT_SEED) {
         seed = time(NULL);
@@ -7564,7 +7531,7 @@ void read_or_write_base_min_p(float* base_min_p) {
             if (iss >> key >> equals >> value && equals == '=' && key == "base_min_p") {
                 *base_min_p = value;
             }
-            // Note: If the key doesn't match, or the format is incorrect, 
+            // Note: If the key doesn't match, or the format is incorrect,
             // you might want to handle the error or set a default value
         }
         infile.close();
@@ -7672,13 +7639,10 @@ void llama_sample_top_p(struct llama_context * ctx, llama_token_data_array * can
 
 }
 
-void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
+void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp, float minTemp, float maxTemp, float exponentVal) {
     const int64_t t_start_sample_us = ggml_time_us();
 
     llama_sample_softmax(ctx, candidates_p);
-
-    float minTemp, maxTemp, ExponentVal;
-    read_or_write_temp(&minTemp, &maxTemp, &ExponentVal);
 
     // Calculate entropy of the softmax probabilities
     float entropy = 0.0f;
@@ -7707,7 +7671,7 @@ void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * c
     float normalized_entropy = entropy / max_entropy;
 
     // Map the normalized entropy to the desired temperature range using the power function
-    float dyn_temp = minTemp + (maxTemp - minTemp) * powf(normalized_entropy, ExponentVal);
+    float dyn_temp = minTemp + (maxTemp - minTemp) * powf(normalized_entropy, exponentVal);
 
     printf("Your text maxtemp value is: %f\n", maxTemp);
 
@@ -7715,7 +7679,7 @@ void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * c
     printf("Entropy: %f\n", entropy);
     printf("Max Possible Entropy: %f\n", max_entropy);
     printf("Normalized Entropy: %f\n", normalized_entropy);
-    printf("Exponent: %f\n", ExponentVal);
+    printf("Exponent: %f\n", exponentVal);
     printf("Dynamic Temperature (dyn_temp): %f\n", dyn_temp);
 
     // Apply the dynamically calculated temperature scaling
@@ -7728,13 +7692,10 @@ void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * c
     }
 }
 
-void llama_sample_hhi(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
+void llama_sample_hhi(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp, float minTemp, float maxTemp, float exponentVal) {
     const int64_t t_start_sample_us = ggml_time_us();
 
     llama_sample_softmax(ctx, candidates_p);
-
-    float minTemp, maxTemp, ExponentVal;
-    read_or_write_temp(&minTemp, &maxTemp, &ExponentVal);
 
     // Print the top 10 logits probabilities
     printf("\nTop 10 Logits Probabilities (in percentages):\n");
@@ -7752,13 +7713,13 @@ void llama_sample_hhi(struct llama_context * ctx, llama_token_data_array * candi
     hhi = 1.0f - hhi;  // Invert the HHI
 
     // Map the inverted hhi to the desired temperature range using the power function
-    float dyn_temp = minTemp + (maxTemp - minTemp) * powf(hhi, ExponentVal);
+    float dyn_temp = minTemp + (maxTemp - minTemp) * powf(hhi, exponentVal);
 
     printf("Your maxTemp value is: %f\n", maxTemp);
 
     // Print the variables
     printf("(Inverted) HHI: %f\n", hhi);
-    printf("Exponent: %f\n", ExponentVal);
+    printf("Exponent: %f\n", exponentVal);
     printf("Dynamic Temperature (dyn_temp): %f\n", dyn_temp);
 
     // Apply the dynamically calculated temperature scaling
@@ -7771,45 +7732,8 @@ void llama_sample_hhi(struct llama_context * ctx, llama_token_data_array * candi
     }
 }
 
-void llama_sample_greedy_dynamic_temp(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
+void llama_sample_greedy_dynamic_temp(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp, float minTemp = 0, float maxTemp = 2.0f, float k = 25.0f, float sigmoidCenterPoint=.75f) {
     const int64_t t_start_sample_us = ggml_time_us();
-
-    /// variables for the DynaTemp function 
-
-    float minTemp, maxTemp, k, sigmoidCenterPoint;
-
-    std::ifstream infile("DynaTemp.txt");
-    if (!infile.good()) {
-        // File doesn't exist, create it with default values
-        std::ofstream outfile("DynaTemp.txt");
-        outfile << "minTemp = 0.0\n";
-        outfile << "maxTemp = 2.0\n";
-        outfile << "k = 10.0\n";
-        outfile << "sigmoidCenterPoint = 0.5\n";
-        outfile.close();
-
-        // Set default values
-        minTemp = 0.0f;
-        maxTemp = 2.0f;
-        k = 10.0f;
-        sigmoidCenterPoint = 0.5f;
-
-    } else {
-        // File exists, read the values from it
-        std::string line;
-        while (getline(infile, line)) {
-            std::istringstream iss(line);
-            std::string key, equals;
-            float value;
-            if (iss >> key >> equals >> value) {
-                if (key == "minTemp") minTemp = value;
-                else if (key == "maxTemp") maxTemp = value;
-                else if (key == "k") k = value;
-                else if (key == "sigmoidCenterPoint") sigmoidCenterPoint = value;
-            }
-        }
-        infile.close();
-    }
 
     llama_sample_softmax(ctx, candidates_p);
 
@@ -7825,11 +7749,9 @@ void llama_sample_greedy_dynamic_temp(struct llama_context * ctx, llama_token_da
 
     // Print out the probability of the token with the highest logit before temperature scaling [TEMPORARY]
     printf("\nProbability of the most likely token before temperature scaling: %f\n", prob_max_token_before_temp);
-    
     // Dynamic temperature adjustment based on top token probability
 
     float dynamic_temp = maxTemp - (maxTemp - minTemp) / (1 + expf(-k * (prob_max_token_before_temp - sigmoidCenterPoint)));
-    
     /// float dynamic_temp = minTemp + (maxTemp - minTemp) * powf(1 - prob_max_token_before_temp, k);
 
     // Print out the dynamically calculated temperature
@@ -7861,13 +7783,13 @@ void llama_sample_temp(struct llama_context * ctx, llama_token_data_array * cand
     }
 }
 
-void llama_sample_temperature(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
+void llama_sample_temperature(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp, float minTemp, float maxTemp, float k, float sigmoidCenterPoint, float exponentVal) {
     if (temp >= 1.90 && temp <= 1.92) {
-        llama_sample_greedy_dynamic_temp(ctx, candidates_p, temp);
+        llama_sample_greedy_dynamic_temp(ctx, candidates_p, temp, minTemp, maxTemp, k, sigmoidCenterPoint);
     } else if (temp >= 1.83 && temp <= 1.85) {
-        llama_sample_entropy(ctx, candidates_p, temp);
+        llama_sample_entropy(ctx, candidates_p, temp, minTemp, maxTemp, exponentVal);
     } else if (temp >= 1.99 && temp <= 2.01) {
-        llama_sample_hhi(ctx, candidates_p, temp);
+        llama_sample_hhi(ctx, candidates_p, temp, minTemp, maxTemp, exponentVal);
     } else {
         // Default sampling method
         llama_sample_temp(ctx, candidates_p, temp);

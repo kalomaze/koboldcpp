@@ -73,6 +73,11 @@ struct generation_inputs
     const bool stream_sse;
     const char * grammar;
     const bool grammar_retain_state;
+    const float min_temp;
+    const float max_temp;
+    const float k;
+    const float scp;
+    const float exponent_val;
 };
 struct generation_outputs
 {

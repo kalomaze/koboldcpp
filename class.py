@@ -300,7 +300,8 @@ class model_backend(InferenceModel):
         genresult = koboldcpp.generate(decoded_prompt,max_new,utils.koboldai_vars.max_length,
         gen_settings.temp,int(gen_settings.top_k),gen_settings.top_a,gen_settings.top_p,
         gen_settings.typical,gen_settings.tfs,gen_settings.rep_pen,gen_settings.rep_pen_range,
-        sampler_order=gen_settings.sampler_order,use_default_badwordsids=utils.koboldai_vars.use_default_badwordsids)
+        sampler_order=gen_settings.sampler_order,use_default_badwordsids=utils.koboldai_vars.use_default_badwordsids,
+        min_temp=gen_settings.min_temp, max_temp=gen_settings.max_temp, k=gen_settings.k, scp=gen_settings.scp, exponent_val=gen_settings.exponent_val)
 
         outputs = [genresult]
         return GenerationResult(

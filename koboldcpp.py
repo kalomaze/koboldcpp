@@ -67,7 +67,12 @@ class generation_inputs(ctypes.Structure):
                 ("stop_sequence", ctypes.c_char_p * stop_token_max),
                 ("stream_sse", ctypes.c_bool),
                 ("grammar", ctypes.c_char_p),
-                ("grammar_retain_state", ctypes.c_bool)]
+                ("grammar_retain_state", ctypes.c_bool),
+                ("min_temp", ctypes.c_float),
+                ("max_temp", ctypes.c_float),
+                ("k", ctypes.c_float),
+                ("scp", ctypes.c_float),
+                ("exponent_val", ctypes.c_float)]
 
 class generation_outputs(ctypes.Structure):
     _fields_ = [("status", ctypes.c_int),
@@ -284,7 +289,9 @@ def load_model(model_filename):
     ret = handle.load_model(inputs)
     return ret
 
-def generate(prompt,max_length=20, max_context_length=512, temperature=0.8, top_k=120, top_a=0.0, top_p=0.85, typical_p=1.0, tfs=1.0, rep_pen=1.1, rep_pen_range=128, mirostat=0, mirostat_tau=5.0, mirostat_eta=0.1, sampler_order=[6,0,1,3,4,2,5], seed=-1, stop_sequence=[], use_default_badwordsids=False, stream_sse=False, grammar='', grammar_retain_state=False, genkey=''):
+def generate(prompt,max_length=20, max_context_length=512, temperature=0.8, top_k=120, top_a=0.0, top_p=0.85, typical_p=1.0, tfs=1.0, rep_pen=1.1, rep_pen_range=128,
+             mirostat=0, mirostat_tau=5.0, mirostat_eta=0.1, sampler_order=[6,0,1,3,4,2,5], seed=-1, stop_sequence=[], use_default_badwordsids=False, stream_sse=False,
+             grammar='', grammar_retain_state=False, genkey='', min_temp=0.0, max_temp=2.0, k=25.0, scp=0.75, exponent_val=2.0):
     global maxctx, args, currentusergenkey, totalgens
     inputs = generation_inputs()
     outputs = ctypes.create_unicode_buffer(ctypes.sizeof(generation_outputs))
@@ -301,6 +308,11 @@ def generate(prompt,max_length=20, max_context_length=512, temperature=0.8, top_
     inputs.top_k = top_k
     inputs.top_a = top_a
     inputs.top_p = top_p
+    inputs.min_temp = min_temp
+    inputs.max_temp = max_temp
+    inputs.k = k
+    inputs.scp = scp
+    inputs.exponent_val = exponent_val
     inputs.typical_p = typical_p
     inputs.tfs = tfs
     inputs.rep_pen = rep_pen
@@ -479,7 +491,12 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
                 stream_sse=stream_flag,
                 grammar=genparams.get('grammar', ''),
                 grammar_retain_state = genparams.get('grammar_retain_state', False),
-                genkey=genparams.get('genkey', ''))
+                genkey=genparams.get('genkey', ''),
+                min_temp=genparams.get('min_temp', 0.0),
+                max_temp=genparams.get('max_temp', 2.0),
+                k=genparams.get('k', 25.0),
+                scp=genparams.get('scp', 0.75),
+                exponent_val=genparams.get('exponent_val', 2.0))
 
         recvtxt = ""
         if stream_flag:

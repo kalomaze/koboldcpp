@@ -3301,6 +3301,13 @@ Current version: 84
 		miro_tau: 5.0,
 		miro_eta: 0.1,
 		sampler_order: [6, 0, 1, 3, 4, 2, 5],
+
+		// DynaTemp
+		min_temp: 0,
+		max_temp: 2,
+		k: 25,
+		scp: 0.75,
+		exponent_val: 2.0
 	};
 
 	var defaultsettings = JSON.parse(JSON.stringify(localsettings));
@@ -6698,6 +6705,11 @@ Current version: 84
 		document.getElementById("instruct_starttag").value = localsettings.instruct_starttag;
 		document.getElementById("instruct_endtag").value = localsettings.instruct_endtag;
 		document.getElementById("top_k").value = localsettings.top_k;
+		document.getElementById("min_temp").value = localsettings.min_temp;
+		document.getElementById("max_temp").value = localsettings.max_temp;
+		document.getElementById("k").value = localsettings.k;
+		document.getElementById("scp").value = localsettings.scp;
+		document.getElementById("exponent_val").value = localsettings.exponent_val;
 		document.getElementById("top_a").value = localsettings.top_a;
 		document.getElementById("typ_s").value = localsettings.typ_s;
 		document.getElementById("tfs_s").value = localsettings.tfs_s;
@@ -6947,6 +6959,11 @@ Current version: 84
 		localsettings.miro_type = document.getElementById("miro_type").value;
 		localsettings.miro_tau = document.getElementById("miro_tau").value;
 		localsettings.miro_eta = document.getElementById("miro_eta").value;
+		localsettings.min_temp = document.getElementById("min_temp").value;
+		localsettings.max_temp = document.getElementById("max_temp").value;
+		localsettings.k = document.getElementById("k").value;
+		localsettings.scp = document.getElementById("scp").value;
+		localsettings.exponent_val = document.getElementById("exponent_val").value;
 
 		localsettings.speech_synth = document.getElementById("ttsselect").value;
 		localsettings.beep_on = (document.getElementById("beep_on").checked?true:false);
@@ -6993,6 +7010,11 @@ Current version: 84
 		localsettings.top_k = cleannum(Math.floor(localsettings.top_k), 0, 300);
 		localsettings.top_a = cleannum(localsettings.top_a, 0, 1);
 		localsettings.typ_s = cleannum(localsettings.typ_s, 0, 1);
+		localsettings.min_temp = cleannum(localsettings.min_temp, 0, 2);
+		localsettings.max_temp = cleannum(localsettings.max_temp, 1.95, 2);
+		localsettings.k = cleannum(localsettings.k, 0, 50);
+		localsettings.scp = cleannum(localsettings.scp, 0, 1);
+		localsettings.exponent_val = cleannum(localsettings.exponent_val, 0, 10);
 		localsettings.tfs_s = cleannum(localsettings.tfs_s, 0, 1);
 		localsettings.miro_type = cleannum(localsettings.miro_type, 0, 2);
 		localsettings.miro_tau = cleannum(localsettings.miro_tau, 0, 30);
@@ -7214,7 +7236,12 @@ Current version: 84
 				"tfs": localsettings.tfs_s,
 				"rep_pen_range": localsettings.rep_pen_range,
 				"rep_pen_slope": localsettings.rep_pen_slope,
-				"sampler_order": localsettings.sampler_order
+				"sampler_order": localsettings.sampler_order,
+				"min_temp": localsettings.min_temp,
+				"max_temp": localsettings.max_temp,
+				"k": localsettings.k,
+				"scp": localsettings.scp,
+				"exponent_val": localsettings.exponent_val
 			},
 			"models": selected_models.map((m) => { return m.name }),
 		};
@@ -7959,7 +7986,12 @@ Current version: 84
 					"tfs": localsettings.tfs_s,
 					"rep_pen_range": localsettings.rep_pen_range,
 					"rep_pen_slope": localsettings.rep_pen_slope,
-					"sampler_order": localsettings.sampler_order
+					"sampler_order": localsettings.sampler_order,
+					"min_temp": localsettings.min_temp,
+					"max_temp": localsettings.max_temp,
+					"k": localsettings.k,
+					"scp": localsettings.scp,
+					"exponent_val": localsettings.exponent_val
 				},
 				"models": selected_models.map((m) => { return m.name }),
 			};
@@ -11603,6 +11635,31 @@ Current version: 84
 						   <input type="checkbox" id="invert_colors" style="margin:0px 0px 0px auto;">
 						</div>
 					</div>
+
+					<div class="settingitem">
+					    <div class="settinglabel">
+                            <div class="justifyleft settingsmall">DynaTemp <span class="helpicon">?<span class="helptext">Experimental DynaTemp Configuration.</span></span></div>
+                            <table class="settingsmall text-center" style="border-spacing: 4px 2px;
+							border-collapse: separate;">
+								<tbody>
+								<tr>
+								    <th title="Minimum Dynamic Temperature Value. Default to 0">MinTemp</th>
+								    <th title="Maximum Dynamic Temperature Value. Default to 2.0">MaxTemp</th>
+								    <th title="K value. Default to 25.0">K</th>
+								    <th title="Sigmoid Center Point. Defaults to 0.75">SCP</th>
+									<th title="Exponent Value. Defaults to 2.0">ExponentVal</th>
+								</tr>
+								<tr>
+								    <td><input class="" type="text" inputmode="decimal" placeholder="0" value="0" id="min_temp"></td>
+								    <td><input class="" type="text" inputmode="decimal" placeholder="2.0" value="2.0" id="max_temp"></td>
+								    <td><input class="" type="text" inputmode="decimal" placeholder="25.0" value="25.0" id="k"></td>
+								    <td><input class="" type="text" inputmode="decimal" placeholder="0.75" value="0.75" id="scp"></td>
+									<td><input class="" type="text" inputmode="decimal" placeholder="2.0" value="2.0" id="exponent_val"></td>
+								</tr>
+							  </tbody>
+							</table>
+                        </div>
+                    </div>
 
 				</div>
 

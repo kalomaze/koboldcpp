@@ -374,18 +374,18 @@ void sample_rep_pen(int n_ctx, int rep_pen_range, float rep_pen, llama_token_dat
         last_n_repeat, rep_pen);
 }
 
-void sample_temperature(llama_token_data_array * candidates_p, float temp)
+void sample_temperature(llama_token_data_array * candidates_p, float temp, float minTemp, float maxTemp, float k, float sigmoidCenterPoint, float exponentVal)
 {
     if (temp <= 0)
     {
         // Imitate greedy sampling
         temp = 0.00390625f; //cannot be zero else div0, this is 1/256
-        llama_sample_temperature(nullptr, candidates_p, temp);
+        llama_sample_temperature(nullptr, candidates_p, temp, minTemp, maxTemp, k, sigmoidCenterPoint, exponentVal);
         llama_sample_top_k(nullptr, candidates_p, 1, 1); //only want first candidate
     }
     else
     {
-        llama_sample_temperature(nullptr, candidates_p, temp);
+        llama_sample_temperature(nullptr, candidates_p, temp, minTemp, maxTemp, k, sigmoidCenterPoint, exponentVal);
     }
 }
 
@@ -429,7 +429,7 @@ void sample_grammar(FileFormat file_format, int32_t n_vocab, llama_token_data_ar
 }
 
 int SampleLogits(const float * logits, int n_ctx, int n_vocab, int rep_pen_range, float rep_pen, float top_k, float top_a, float top_p, float typical_p, float tfs, float temp, std::mt19937 & rng,
-int mirostat, float mirostat_tau, float mirostat_eta, const std::vector<samplers> & sampler_order, llama_grammar * grammar)
+int mirostat, float mirostat_tau, float mirostat_eta, const std::vector<samplers> & sampler_order, llama_grammar * grammar, float minTemp, float maxTemp, float k, float sigmoidCenterPoint, float exponentVal)
 {
     int id = 0;
     std::vector<llama_token_data> candidates;
@@ -449,7 +449,7 @@ int mirostat, float mirostat_tau, float mirostat_eta, const std::vector<samplers
         static float mirostat_mu = 2.0f * mirostat_tau;
         const int mirostat_m = 100;
         sample_rep_pen(n_ctx, rep_pen_range, rep_pen, &candidates_p);
-        sample_temperature(&candidates_p, temp);
+        sample_temperature(&candidates_p, temp, minTemp, maxTemp, k, sigmoidCenterPoint, exponentVal);
         if (mirostat == 1)
         {
             id = sample_token_mirostat(n_vocab, &candidates_p, rng, mirostat_tau, mirostat_eta, mirostat_m, &mirostat_mu);
@@ -481,7 +481,7 @@ int mirostat, float mirostat_tau, float mirostat_eta, const std::vector<samplers
                     llama_sample_typical(nullptr, &candidates_p, typical_p,1);
                     break;
                 case KCPP_SAMPLER_TEMP:
-                    sample_temperature(&candidates_p, temp);
+                    sample_temperature(&candidates_p, temp, minTemp, maxTemp, k, sigmoidCenterPoint, exponentVal);
                     break;
                 case KCPP_SAMPLER_REP_PEN:
                     sample_rep_pen(n_ctx, rep_pen_range, rep_pen, &candidates_p);
@@ -1281,6 +1281,11 @@ generation_outputs gpttype_generate(const generation_inputs inputs, generation_o
     params.mirostat = inputs.mirostat;
     params.mirostat_eta = inputs.mirostat_eta;
     params.mirostat_tau = inputs.mirostat_tau;
+    params.min_temp = inputs.min_temp;
+    params.max_temp = inputs.max_temp;
+    params.k = inputs.k;
+    params.scp = inputs.scp;
+    params.exponent_val = inputs.exponent_val;
     params.n_ctx = inputs.max_context_length;
     params.n_batch = n_batch;
     params.n_threads = n_threads;
@@ -1677,7 +1682,7 @@ generation_outputs gpttype_generate(const generation_inputs inputs, generation_o
 
             id = SampleLogits(logitsPtr, nctx, n_vocab, last_n_size, repeat_penalty,
             top_k, top_a, top_p, typical_p, tfs_z, temp, rng,
-            params.mirostat, params.mirostat_tau, params.mirostat_eta, sampler_order, grammar);
+            params.mirostat, params.mirostat_tau, params.mirostat_eta, sampler_order, grammar, params.min_temp, params.max_temp, params.k, params.scp, params.exponent_val);
 
             if (grammar != nullptr) {
                 grammar_accept_token(file_format, n_vocab, grammar, id);

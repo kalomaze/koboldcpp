@@ -1,4 +1,0 @@
-minTemp = 0.0
-maxTemp = 1.5
-k = 10.0
-sigmoidCenterPoint = 0.5
