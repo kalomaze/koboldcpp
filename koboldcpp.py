@@ -379,7 +379,7 @@ maxhordelen = 256
 modelbusy = threading.Lock()
 requestsinqueue = 0
 defaultport = 5001
-KcppVersion = "1.48"
+KcppVersion = "1.48.1"
 showdebug = True
 showsamplerwarning = True
 showmaxctxwarning = True
@@ -392,6 +392,7 @@ rewardcounter = 0 #reduces error counts for successful jobs
 totalgens = 0
 currentusergenkey = "" #store a special key so polled streaming works even in multiuser
 args = None #global args
+gui_layers_untouched = True
 
 class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
     sys_version = ""
@@ -955,9 +956,12 @@ def show_new_gui():
     runopts = [opt for lib, opt in lib_option_pairs if file_exists(lib)]
     antirunopts = [opt.replace("Use ", "") for lib, opt in lib_option_pairs if not (opt in runopts)]
     if os.name != 'nt':
-        antirunopts.remove("NoAVX2 Mode (Old CPU)")
-        antirunopts.remove("Failsafe Mode (Old CPU)")
-        antirunopts.remove("CLBlast NoAVX2 (Old CPU)")
+        if "NoAVX2 Mode (Old CPU)" in antirunopts:
+            antirunopts.remove("NoAVX2 Mode (Old CPU)")
+        if "Failsafe Mode (Old CPU)" in antirunopts:
+            antirunopts.remove("Failsafe Mode (Old CPU)")
+        if "CLBlast NoAVX2 (Old CPU)" in antirunopts:
+            antirunopts.remove("CLBlast NoAVX2 (Old CPU)")
     if not any(runopts):
         exitcounter = 999
         show_gui_msgbox("No Backends Available!","KoboldCPP couldn't locate any backends to use (i.e Default, OpenBLAS, CLBlast, CuBLAS).\n\nTo use the program, please run the 'make' command from the directory.")
@@ -1082,6 +1086,7 @@ def show_new_gui():
         from subprocess import run, CalledProcessError
         FetchedCUdevices = []
         FetchedCUdeviceMem = []
+        AMDgpu = None
         try: # Get OpenCL GPU names on windows using a special binary. overwrite at known index if found.
             basepath = os.path.abspath(os.path.dirname(__file__))
             output = run([((os.path.join(basepath, "winclinfo.exe")) if os.name == 'nt' else "clinfo"),"--json"], capture_output=True, text=True, check=True, encoding='utf-8').stdout
@@ -1115,32 +1120,53 @@ def show_new_gui():
             try: # Get AMD ROCm GPU names
                 output = run(['rocminfo'], capture_output=True, text=True, check=True, encoding='utf-8').stdout
                 device_name = None
-                for line in output.splitlines():
+                for line in output.splitlines(): # read through the output line by line
                     line = line.strip()
-                    if line.startswith("Marketing Name:"): device_name = line.split(":", 1)[1].strip()
-                    elif line.startswith("Device Type:") and "GPU" in line and device_name is not None: FetchedCUdevices.append(device_name)
+                    if line.startswith("Marketing Name:"): device_name = line.split(":", 1)[1].strip() # if we find a named device, temporarily save the name
+                    elif line.startswith("Device Type:") and "GPU" in line and device_name is not None: # if the following Device Type is a GPU (not a CPU) then add it to devices list
+                        FetchedCUdevices.append(device_name)
+                        AMDgpu = True
                     elif line.startswith("Device Type:") and "GPU" not in line: device_name = None
+                if FetchedCUdevices:
+                    getamdvram = run(['rocm-smi', '--showmeminfo', 'vram', '--csv'], capture_output=True, text=True, check=True, encoding='utf-8').stdout # fetch VRAM of devices
+                    FetchedCUdeviceMem = [line.split(",")[1].strip() for line in getamdvram.splitlines()[1:] if line.strip()]
             except Exception as e:
                 pass
 
         for idx in range(0,4):
             if(len(FetchedCUdevices)>idx):
                 CUDevicesNames[idx] = FetchedCUdevices[idx]
-                MaxMemory[0] = max(int(FetchedCUdeviceMem[idx])*1024*1024,MaxMemory[0])
-                pass
+                if AMDgpu:
+                    MaxMemory[0] = max(int(FetchedCUdeviceMem[idx]),MaxMemory[0])
+                else:
+                    MaxMemory[0] = max(int(FetchedCUdeviceMem[idx])*1024*1024,MaxMemory[0])
+
+        #autopick cublas if suitable, requires at least 3.5GB VRAM to auto pick
+        global exitcounter
+        if exitcounter < 100 and MaxMemory[0]>3500000000 and CUDevicesNames[0]!="" and ("Use CuBLAS" in runopts or "Use hipBLAS (ROCM)" in runopts) and runopts_var.get()=="Use OpenBLAS":
+            if "Use CuBLAS" in runopts:
+                runopts_var.set("Use CuBLAS")
+            elif "Use hipBLAS (ROCM)" in runopts:
+                runopts_var.set("Use hipBLAS (ROCM)")
 
         changed_gpu_choice_var()
         return
 
     def autoset_gpu_layers(filepath): #shitty algo to determine how many layers to use
         try:
+            global gui_layers_untouched
             fsize = os.path.getsize(filepath)
             if fsize>10000000: #dont bother with models < 10mb
                 mem = MaxMemory[0]
                 sizeperlayer = fsize*0.05714
                 layerlimit = int(min(200,mem/sizeperlayer))
-                if (gpulayers_var.get()=="" or gpulayers_var.get()=="0") and layerlimit>0:
+                old_gui_layers_untouched = gui_layers_untouched
+                gui_layers_zeroed = gpulayers_var.get()=="" or gpulayers_var.get()=="0"
+                if (gui_layers_untouched or gui_layers_zeroed) and layerlimit>0:
                     gpulayers_var.set(str(layerlimit))
+                    gui_layers_untouched = old_gui_layers_untouched
+                    if gui_layers_zeroed:
+                        gui_layers_untouched = True
         except Exception as ex:
             pass
 
@@ -1173,6 +1199,11 @@ def show_new_gui():
         num_backends_built.bind("<Enter>", lambda event: show_tooltip(event, f"Number of backends you have built and available." + (f"\n\nMissing Backends: \n\n{nl.join(antirunopts)}" if len(runopts) != 6 else "")))
         num_backends_built.bind("<Leave>", hide_tooltip)
 
+    def changed_gpulayers(*args):
+        global gui_layers_untouched
+        gui_layers_untouched = False
+        pass
+
     def changed_gpu_choice_var(*args):
         global exitcounter
         if exitcounter > 100:
@@ -1194,6 +1225,7 @@ def show_new_gui():
             gpuname_label.configure(text="")
 
     gpu_choice_var.trace("w", changed_gpu_choice_var)
+    gpulayers_var.trace("w", changed_gpulayers)
 
     def changerunmode(a,b,c):
         index = runopts_var.get()
@@ -1814,12 +1846,12 @@ def setuptunnel():
             tunnelrawlog = ""
             time.sleep(0.2)
             if os.name == 'nt':
-                print("Starting Cloudflare Tunnel for Windows...")
+                print("Starting Cloudflare Tunnel for Windows, please wait...")
                 tunnelproc = subprocess.Popen(f"cloudflared.exe tunnel --url localhost:{args.port}", text=True, encoding='utf-8', shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
             else:
-                print("Starting Cloudflare Tunnel for Linux...")
+                print("Starting Cloudflare Tunnel for Linux, please wait...")
                 tunnelproc = subprocess.Popen(f"./cloudflared-linux-amd64 tunnel --url http://localhost:{args.port}", text=True, encoding='utf-8', shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-            time.sleep(6)
+            time.sleep(10)
             def tunnel_reader():
                 nonlocal tunnelproc,tunneloutput,tunnelrawlog
                 pattern = r'https://[\w\.-]+\.trycloudflare\.com'
@@ -1831,15 +1863,15 @@ def setuptunnel():
                     found = re.findall(pattern, line)
                     for x in found:
                         tunneloutput = x
+                        print(f"Your remote tunnel is ready, please connect to {tunneloutput}")
                         return
 
             tunnel_reader_thread = threading.Thread(target=tunnel_reader)
             tunnel_reader_thread.start()
-            time.sleep(0.8)
-            if tunneloutput!="":
-                print(f"Your remote tunnel is ready, please connect to {tunneloutput}")
-            else:
+            time.sleep(5)
+            if tunneloutput=="":
                 print(f"Error: Could not create cloudflare tunnel!\nMore Info:\n{tunnelrawlog}")
+            time.sleep(0.5)
             tunnelproc.wait()
 
         if os.name == 'nt':
