@@ -6757,6 +6757,13 @@ void llama_sample_top_p(struct llama_context * ctx, llama_token_data_array * can
         return;
     }
 
+    // Print the top tokens before filtering
+    printf("Top 10 tokens before TOP P:\n");
+    for (size_t i = 0; i < candidates->size && i < 10; ++i) {  // Adjust 10 to however many top tokens you want to display
+        printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);  // Multiplying by 100 to convert to percentage
+    }
+
+
     llama_sample_softmax(ctx, candidates);
 
     const int64_t t_start_sample_us = ggml_time_us();
@@ -6779,6 +6786,12 @@ void llama_sample_top_p(struct llama_context * ctx, llama_token_data_array * can
     // Resize the output vector to keep only the top-p tokens
     candidates->size = last_idx;
 
+    // Print the top tokens before filtering
+    printf("Top 10 tokens AFTER TOP P:\n");
+    for (size_t i = 0; i < candidates->size && i < 10; ++i) {  // Adjust 10 to however many top tokens you want to display
+        printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);  // Multiplying by 100 to convert to percentage
+    }
+
     if (ctx) {
         ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
     }
@@ -6794,7 +6807,7 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
     const int64_t t_start_sample_us = ggml_time_us();
 
     // Print the top tokens before filtering
-    printf("Top 10 tokens before filtering:\n");
+    printf("Top 10 tokens before MIN P:\n");
     for (size_t i = 0; i < candidates->size && i < 10; ++i) {  // Adjust 10 to however many top tokens you want to display
         printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);  // Multiplying by 100 to convert to percentage
     }
@@ -6813,9 +6826,10 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
 
     // Resize the output vector to keep only the matching tokens
     candidates->size = i;
+    llama_sample_softmax(ctx, candidates);
 
     // Print the top tokens before filtering
-    printf("Remaining (top ten) tokens after filtering:\n");
+    printf("Remaining (top ten) tokens after MIN P:\n");
     for (size_t i = 0; i < candidates->size && i < 10; ++i) {  // Adjust 10 to however many top tokens you want to display
         printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);  // Multiplying by 100 to convert to percentage
     }
@@ -7014,9 +7028,42 @@ void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * c
     printf("Exponent: %f\n", ExponentVal);
     printf("Dynamic Temperature (dyn_temp): %f\n", dyn_temp);
 
-    // Apply the dynamically calculated temperature scaling
+    // Print probabilities before scaling for debugging
+    printf("Probabilities Before Scaling:\n");
     for (size_t i = 0; i < candidates_p->size; ++i) {
-        candidates_p->data[i].logit /= dyn_temp;
+        printf("Token %zu: %f\n", i+1, candidates_p->data[i].p);
+    }
+
+    // Find max probability index and average probability
+    float max_p = candidates_p->data[0].p;
+    float avg_p = 0.0f;
+    for (size_t i = 0; i < candidates_p->size; ++i) {
+        avg_p += candidates_p->data[i].p;
+    }
+    avg_p /= candidates_p->size;
+
+    // Scale the probabilities
+    if (dyn_temp >= 0) {
+        // Scale towards determinism
+        candidates_p->data[0].p += (1 - max_p) * dyn_temp; // Increment max prob by alpha
+        for (size_t i = 1; i < candidates_p->size; ++i) {
+            candidates_p->data[i].p *= (1 - dyn_temp); // Scale other probs by (1-alpha)
+        }
+    } else {
+        // Scale towards uniformity
+        float abs_alpha = std::abs(dyn_temp);
+        candidates_p->data[0].p -= (max_p - avg_p) * abs_alpha; // Decrement max prob by alpha
+        for (size_t i = 1; i < candidates_p->size; ++i) {
+            candidates_p->data[i].p += (avg_p - candidates_p->data[i].p) * abs_alpha; // Increment other probs
+        }
+    }
+
+    llama_sample_softmax(ctx, candidates_p);
+
+    // Print the scaled probabilities
+    printf("\nScaled Probabilities:\n");
+    for (size_t i = 0; i < candidates_p->size; ++i) {
+        printf("Token %zu: %f\n", i+1, candidates_p->data[i].p);
     }
 
     if (ctx) {
@@ -7125,8 +7172,6 @@ void llama_sample_greedy_dynamic_temp(struct llama_context * ctx, llama_token_da
     // Dynamic temperature adjustment based on top token probability
 
     float dynamic_temp = maxTemp - (maxTemp - minTemp) / (1 + expf(-k * (prob_max_token_before_temp - sigmoidCenterPoint)));
-    
-    /// float dynamic_temp = minTemp + (maxTemp - minTemp) * powf(1 - prob_max_token_before_temp, k);
 
     // Print out the dynamically calculated temperature
     printf("Dynamically calculated temperature for this token: %f\n", dynamic_temp);

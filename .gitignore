@@ -114,3 +114,5 @@ koboldcpp_hipblas.so
 
 # Jetbrains idea folder
 .idea/
+*.dll
+Launch_Kobold.bat
