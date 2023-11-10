@@ -6816,15 +6816,6 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
     float multiplication_factor = candidates->data[0].p;  // Assuming the probabilities are sorted
     printf("Highest scoring token probability (multiplication factor): %f\n", multiplication_factor);
 
-    float scale = candidates->data[0].p; // scale by max prob
-    size_t i = 1; // first token always matches
-
-    for (; i < candidates->size; ++i) {
-        if (candidates->data[i].p < p * scale && i >= min_keep) {
-            break; // prob too small
-        }
-    }
-
     // Resize the output vector to keep only the matching tokens
     candidates->size = i;
     llama_sample_softmax(ctx, candidates);
@@ -6833,51 +6824,6 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
     printf("Remaining (top ten) tokens after MIN P:\n");
     for (size_t i = 0; i < candidates->size && i < 10; ++i) {  // Adjust 10 to however many top tokens you want to display
         printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);  // Multiplying by 100 to convert to percentage
-    }
-
-    float minTemp, maxTemp, ExponentVal;
-    read_or_write_temp(&minTemp, &maxTemp, &ExponentVal);
-
-    float a = ExponentVal; // Coefficient for the quadratic function
-
-    // Calculate the mean probability
-    float mean_prob = 0.0f;
-    for (size_t i = 0; i < candidates->size; ++i) {
-        mean_prob += candidates->data[i].p;
-    }
-    mean_prob /= candidates->size;
-
-    // Apply a quadratic function to adjust probabilities away from the mean
-    for (size_t i = 0; i < candidates->size; ++i) {
-        // Compute the distance from the mean probability
-        float distance = candidates->data[i].p - mean_prob;
-        
-        // Adjust the probability using the quadratic function with a check to avoid going below zero
-        candidates->data[i].p -= a * distance * distance;
-        
-        // Ensure that the adjusted probability is not negative
-        if (candidates->data[i].p < 0.0f) {
-            candidates->data[i].p = 0.0f;
-        }
-    }
-    
-    // Calculate logits from the adjusted probabilities
-    for (size_t i = 0; i < candidates->size; ++i) {
-        // We assume here that the input probabilities are already from a softmax, so we can retrieve the logits
-        // by taking the log. In a practical scenario, we would also need to consider the softmax temperature.
-        candidates->data[i].logit = log(candidates->data[i].p);
-    }
-
-    candidates->sorted = false;
-
-    // Reapply softmax to the logits to get the new normalized probabilities
-    llama_sample_softmax(ctx, candidates);
-
-    // Print the top tokens after applying the bias towards the mean
-    printf("Top 10 tokens after applying bias towards the mean:\n");
-    
-    for (size_t i = 0; i < candidates->size && i < 10; ++i) {
-        printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100); // Index 'i' displayed as is for 0-indexing
     }
 
     if (ctx) {
