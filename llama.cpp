@@ -6816,6 +6816,15 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
     float multiplication_factor = candidates->data[0].p;  // Assuming the probabilities are sorted
     printf("Highest scoring token probability (multiplication factor): %f\n", multiplication_factor);
 
+    float scale = candidates->data[0].p; // scale by max prob
+    size_t i = 1; // first token always matches
+
+    for (; i < candidates->size; ++i) {
+        if (candidates->data[i].p < p * scale && i >= min_keep) {
+            break; // prob too small
+        }
+    }
+
     // Resize the output vector to keep only the matching tokens
     candidates->size = i;
     llama_sample_softmax(ctx, candidates);
