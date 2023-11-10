@@ -6835,6 +6835,51 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
         printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);  // Multiplying by 100 to convert to percentage
     }
 
+    float minTemp, maxTemp, ExponentVal;
+    read_or_write_temp(&minTemp, &maxTemp, &ExponentVal);
+
+    float a = ExponentVal; // Coefficient for the quadratic function
+
+    // Calculate the mean probability
+    float mean_prob = 0.0f;
+    for (size_t i = 0; i < candidates->size; ++i) {
+        mean_prob += candidates->data[i].p;
+    }
+    mean_prob /= candidates->size;
+
+    // Apply a quadratic function to adjust probabilities away from the mean
+    for (size_t i = 0; i < candidates->size; ++i) {
+        // Compute the distance from the mean probability
+        float distance = candidates->data[i].p - mean_prob;
+        
+        // Adjust the probability using the quadratic function with a check to avoid going below zero
+        candidates->data[i].p -= a * distance * distance;
+        
+        // Ensure that the adjusted probability is not negative
+        if (candidates->data[i].p < 0.0f) {
+            candidates->data[i].p = 0.0f;
+        }
+    }
+    
+    // Calculate logits from the adjusted probabilities
+    for (size_t i = 0; i < candidates->size; ++i) {
+        // We assume here that the input probabilities are already from a softmax, so we can retrieve the logits
+        // by taking the log. In a practical scenario, we would also need to consider the softmax temperature.
+        candidates->data[i].logit = log(candidates->data[i].p);
+    }
+
+    candidates->sorted = false;
+
+    // Reapply softmax to the logits to get the new normalized probabilities
+    llama_sample_softmax(ctx, candidates);
+
+    // Print the top tokens after applying the bias towards the mean
+    printf("Top 10 tokens after applying bias towards the mean:\n");
+    
+    for (size_t i = 0; i < candidates->size && i < 10; ++i) {
+        printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100); // Index 'i' displayed as is for 0-indexing
+    }
+
     if (ctx) {
         ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
     }
@@ -6982,9 +7027,9 @@ void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * c
         }
     }
 
-    // Print the top 10 logits probabilities
-    printf("\nTop 10 Logits Probabilities (in percentages):\n");
-    for (size_t i = 0; i < 10 && i < candidates_p->size; ++i) {
+    // Print the top 25 logits probabilities
+    printf("\nTop 25 Logits Probabilities (in percentages):\n");
+    for (size_t i = 0; i < 25 && i < candidates_p->size; ++i) {
         printf("Token %zu: %f%%\n", i+1, candidates_p->data[i].p * 100.0f);
     }
 
@@ -7029,42 +7074,9 @@ void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * c
     printf("Exponent: %f\n", ExponentVal);
     printf("Dynamic Temperature (dyn_temp): %f\n", dyn_temp);
 
-    // Print probabilities before scaling for debugging
-    printf("Probabilities Before Scaling:\n");
+    // Apply the dynamically calculated temperature scaling
     for (size_t i = 0; i < candidates_p->size; ++i) {
-        printf("Token %zu: %f\n", i+1, candidates_p->data[i].p);
-    }
-
-    // Find max probability index and average probability
-    float max_p = candidates_p->data[0].p;
-    float avg_p = 0.0f;
-    for (size_t i = 0; i < candidates_p->size; ++i) {
-        avg_p += candidates_p->data[i].p;
-    }
-    avg_p /= candidates_p->size;
-
-    // Scale the probabilities
-    if (dyn_temp >= 0) {
-        // Scale towards determinism
-        candidates_p->data[0].p += (1 - max_p) * dyn_temp; // Increment max prob by alpha
-        for (size_t i = 1; i < candidates_p->size; ++i) {
-            candidates_p->data[i].p *= (1 - dyn_temp); // Scale other probs by (1-alpha)
-        }
-    } else {
-        // Scale towards uniformity
-        float abs_alpha = std::abs(dyn_temp);
-        candidates_p->data[0].p -= (max_p - avg_p) * abs_alpha; // Decrement max prob by alpha
-        for (size_t i = 1; i < candidates_p->size; ++i) {
-            candidates_p->data[i].p += (avg_p - candidates_p->data[i].p) * abs_alpha; // Increment other probs
-        }
-    }
-
-    llama_sample_softmax(ctx, candidates_p);
-
-    // Print the scaled probabilities
-    printf("\nScaled Probabilities:\n");
-    for (size_t i = 0; i < candidates_p->size; ++i) {
-        printf("Token %zu: %f\n", i+1, candidates_p->data[i].p);
+        candidates_p->data[i].logit /= dyn_temp;
     }
 
     if (ctx) {
@@ -7213,53 +7225,6 @@ void llama_sample_temperature(struct llama_context * ctx, llama_token_data_array
     } else {
         // Default sampling method
         llama_sample_temp(ctx, candidates_p, temp);
-    }
-}
-
-void llama_sample_repetition_penalties(
-            struct llama_context * ctx,
-          llama_token_data_array * candidates,
-               const llama_token * last_tokens,
-                          size_t   penalty_last_n,
-                           float   penalty_repeat,
-                           float   penalty_freq,
-                           float   penalty_present) {
-    if (penalty_last_n == 0 || (penalty_repeat == 1.0f && penalty_freq == 0.0f && penalty_present == 0.0f)) {
-        return;
-    }
-
-    const int64_t t_start_sample_us = ggml_time_us();
-
-    // Create a frequency map to count occurrences of each token in last_tokens
-    std::unordered_map<llama_token, int> token_count;
-    for (size_t i = 0; i < penalty_last_n; ++i) {
-        token_count[last_tokens[i]]++;
-    }
-
-    // Apply frequency and presence penalties to the candidates
-    for (size_t i = 0; i < candidates->size; ++i) {
-        const auto token_iter = token_count.find(candidates->data[i].id);
-        if (token_iter == token_count.end()) {
-            continue;
-        }
-
-        const int count = token_iter->second;
-
-        // The academic publication that described this technique actually just only divided, but that would cause tokens with negative logits to become more likely, which is obviously wrong.
-        // This is common fix for this problem, which is to multiply by the penalty instead of dividing.
-        if (candidates->data[i].logit <= 0) {
-            candidates->data[i].logit *= penalty_repeat;
-        } else {
-            candidates->data[i].logit /= penalty_repeat;
-        }
-
-        candidates->data[i].logit -= float(count) * penalty_freq + float(count > 0) * penalty_present;
-    }
-
-    candidates->sorted = false;
-
-    if (ctx) {
-        ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
     }
 }
 
