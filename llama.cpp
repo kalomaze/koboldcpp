@@ -6816,6 +6816,9 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
     float multiplication_factor = candidates->data[0].p;  // Assuming the probabilities are sorted
     printf("Highest scoring token probability (multiplication factor): %f\n", multiplication_factor);
 
+    printf("Min P base value: %f\n", p);
+    printf("Modified Min P for this token: %f\n", p * multiplication_factor);
+
     float scale = candidates->data[0].p; // scale by max prob
     size_t i = 1; // first token always matches
 
