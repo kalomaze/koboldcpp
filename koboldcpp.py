@@ -49,6 +49,7 @@ class load_model_inputs(ctypes.Structure):
 class generation_inputs(ctypes.Structure):
     _fields_ = [("seed", ctypes.c_int),
                 ("prompt", ctypes.c_char_p),
+                ("memory", ctypes.c_char_p),
                 ("max_context_length", ctypes.c_int),
                 ("max_length", ctypes.c_int),
                 ("temperature", ctypes.c_float),
@@ -73,7 +74,7 @@ class generation_inputs(ctypes.Structure):
 
 class generation_outputs(ctypes.Structure):
     _fields_ = [("status", ctypes.c_int),
-                ("text", ctypes.c_char * 24576)]
+                ("text", ctypes.c_char * 32768)]
 
 handle = None
 
@@ -213,6 +214,7 @@ def init_library():
     handle.get_last_eval_time.restype = ctypes.c_float
     handle.get_last_process_time.restype = ctypes.c_float
     handle.get_last_token_count.restype = ctypes.c_int
+    handle.get_total_gens.restype = ctypes.c_int
     handle.get_last_stop_reason.restype = ctypes.c_int
     handle.abort_generate.restype = ctypes.c_bool
     handle.token_count.restype = ctypes.c_int
@@ -297,11 +299,12 @@ def load_model(model_filename):
     ret = handle.load_model(inputs)
     return ret
 
-def generate(prompt,max_length=32, max_context_length=512, temperature=0.7, top_k=100, top_a=0.0, top_p=0.92, min_p=0.0, typical_p=1.0, tfs=1.0, rep_pen=1.1, rep_pen_range=128, mirostat=0, mirostat_tau=5.0, mirostat_eta=0.1, sampler_order=[6,0,1,3,4,2,5], seed=-1, stop_sequence=[], use_default_badwordsids=False, stream_sse=False, grammar='', grammar_retain_state=False, genkey=''):
+def generate(prompt, memory="", max_length=32, max_context_length=512, temperature=0.7, top_k=100, top_a=0.0, top_p=0.92, min_p=0.0, typical_p=1.0, tfs=1.0, rep_pen=1.1, rep_pen_range=128, mirostat=0, mirostat_tau=5.0, mirostat_eta=0.1, sampler_order=[6,0,1,3,4,2,5], seed=-1, stop_sequence=[], use_default_badwordsids=False, stream_sse=False, grammar='', grammar_retain_state=False, genkey='', trimstop=False):
     global maxctx, args, currentusergenkey, totalgens
     inputs = generation_inputs()
     outputs = ctypes.create_unicode_buffer(ctypes.sizeof(generation_outputs))
     inputs.prompt = prompt.encode("UTF-8")
+    inputs.memory = memory.encode("UTF-8")
     if max_length >= max_context_length:
         max_length = max_context_length-1
     inputs.max_context_length = max_context_length   # this will resize the context buffer if changed
@@ -349,9 +352,15 @@ def generate(prompt,max_length=32, max_context_length=512, temperature=0.7, top_
     currentusergenkey = genkey
     totalgens += 1
     ret = handle.generate(inputs,outputs)
-    if(ret.status==1):
-        return ret.text.decode("UTF-8","ignore")
-    return ""
+    outstr = ""
+    if ret.status==1:
+        outstr = ret.text.decode("UTF-8","ignore")
+    if trimstop:
+        for trim_str in stop_sequence:
+            sindex = outstr.find(trim_str)
+            if sindex != -1 and trim_str!="":
+                outstr = outstr[:sindex]
+    return outstr
 
 def utfprint(str):
     try:
@@ -379,7 +388,7 @@ maxhordelen = 256
 modelbusy = threading.Lock()
 requestsinqueue = 0
 defaultport = 5001
-KcppVersion = "1.48.1"
+KcppVersion = "1.50.1"
 showdebug = True
 showsamplerwarning = True
 showmaxctxwarning = True
@@ -393,6 +402,7 @@ totalgens = 0
 currentusergenkey = "" #store a special key so polled streaming works even in multiuser
 args = None #global args
 gui_layers_untouched = True
+preloaded_story = None
 
 class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
     sys_version = ""
@@ -415,67 +425,64 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
 
     async def generate_text(self, genparams, api_format, stream_flag):
         global friendlymodelname
-        def run_blocking():
+        def run_blocking(): #api format 1=basic,2=kai,3=oai,4=oai-chat
             if api_format==1:
                 genparams["prompt"] = genparams.get('text', "")
                 genparams["top_k"] = int(genparams.get('top_k', 120))
-                genparams["max_length"] = genparams.get('max', 80)
-            elif api_format==3:
+                genparams["max_length"] = genparams.get('max', 100)
+
+            elif api_format==3 or api_format==4:
                 frqp = genparams.get('frequency_penalty', 0.1)
                 scaled_rep_pen = genparams.get('presence_penalty', frqp) + 1
-                genparams["max_length"] = genparams.get('max_tokens', 80)
+                genparams["max_length"] = genparams.get('max_tokens', 100)
                 genparams["rep_pen"] = scaled_rep_pen
                 # openai allows either a string or a list as a stop sequence
                 if isinstance(genparams.get('stop',[]), list):
                     genparams["stop_sequence"] = genparams.get('stop', [])
                 else:
                     genparams["stop_sequence"] = [genparams.get('stop')]
-            elif api_format==4:
-                # translate openai chat completion messages format into one big string.
-                messages_array = genparams.get('messages', [])
-                adapter_obj = genparams.get('adapter', {})
-                messages_string = ""
-                system_message_start = adapter_obj.get("system_start", "\n### Instruction:\n")
-                system_message_end = adapter_obj.get("system_end", "")
-                user_message_start = adapter_obj.get("user_start", "\n### Instruction:\n")
-                user_message_end = adapter_obj.get("user_end", "")
-                assistant_message_start = adapter_obj.get("assistant_start", "\n### Response:\n")
-                assistant_message_end = adapter_obj.get("assistant_end", "")
 
-                for message in messages_array:
-                    if message['role'] == "system":
-                        messages_string += system_message_start
-                    elif message['role'] == "user":
-                        messages_string += user_message_start
-                    elif message['role'] == "assistant":
-                        messages_string += assistant_message_start
+                genparams["sampler_seed"] = genparams.get('seed', -1)
+                genparams["use_default_badwordsids"] = genparams.get('ignore_eos', False)
+                genparams["mirostat"] = genparams.get('mirostat_mode', 0)
 
-                    messages_string += message['content']
+                if api_format==4:
+                    # translate openai chat completion messages format into one big string.
+                    messages_array = genparams.get('messages', [])
+                    adapter_obj = genparams.get('adapter', {})
+                    messages_string = ""
+                    system_message_start = adapter_obj.get("system_start", "\n### Instruction:\n")
+                    system_message_end = adapter_obj.get("system_end", "")
+                    user_message_start = adapter_obj.get("user_start", "\n### Instruction:\n")
+                    user_message_end = adapter_obj.get("user_end", "")
+                    assistant_message_start = adapter_obj.get("assistant_start", "\n### Response:\n")
+                    assistant_message_end = adapter_obj.get("assistant_end", "")
 
-                    if message['role'] == "system":
-                        messages_string += system_message_end
-                    elif message['role'] == "user":
-                        messages_string += user_message_end
-                    elif message['role'] == "assistant":
-                        messages_string += assistant_message_end
+                    for message in messages_array:
+                        if message['role'] == "system":
+                            messages_string += system_message_start
+                        elif message['role'] == "user":
+                            messages_string += user_message_start
+                        elif message['role'] == "assistant":
+                            messages_string += assistant_message_start
 
-                messages_string += assistant_message_start
+                        messages_string += message['content']
 
-                genparams["prompt"] = messages_string
-                frqp = genparams.get('frequency_penalty', 0.1)
-                scaled_rep_pen = genparams.get('presence_penalty', frqp) + 1
-                genparams["max_length"] = genparams.get('max_tokens', 80)
-                genparams["rep_pen"] = scaled_rep_pen
-                # openai allows either a string or a list as a stop sequence
-                if isinstance(genparams.get('stop',[]), list):
-                    genparams["stop_sequence"] = genparams.get('stop', [])
-                else:
-                    genparams["stop_sequence"] = [genparams.get('stop')]
+                        if message['role'] == "system":
+                            messages_string += system_message_end
+                        elif message['role'] == "user":
+                            messages_string += user_message_end
+                        elif message['role'] == "assistant":
+                            messages_string += assistant_message_end
+
+                    messages_string += assistant_message_start
+                    genparams["prompt"] = messages_string
 
             return generate(
                 prompt=genparams.get('prompt', ""),
+                memory=genparams.get('memory', ""),
                 max_context_length=genparams.get('max_context_length', maxctx),
-                max_length=genparams.get('max_length', 80),
+                max_length=genparams.get('max_length', 100),
                 temperature=genparams.get('temperature', 0.7),
                 top_k=genparams.get('top_k', 100),
                 top_a=genparams.get('top_a', 0.0),
@@ -495,7 +502,8 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
                 stream_sse=stream_flag,
                 grammar=genparams.get('grammar', ''),
                 grammar_retain_state = genparams.get('grammar_retain_state', False),
-                genkey=genparams.get('genkey', ''))
+                genkey=genparams.get('genkey', ''),
+                trimstop=genparams.get('trim_stop', False))
 
         recvtxt = ""
         if stream_flag:
@@ -566,6 +574,9 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
                 if api_format == 4:  # if oai chat, set format to expected openai streaming response
                     event_str = json.dumps({"id":"koboldcpp","object":"chat.completion.chunk","created":1,"model":friendlymodelname,"choices":[{"index":0,"finish_reason":"length","delta":{'role':'assistant','content':tokenStr}}]})
                     await self.send_oai_sse_event(event_str)
+                elif api_format == 3:  # non chat completions
+                    event_str = json.dumps({"id":"koboldcpp","object":"text_completion","created":1,"model":friendlymodelname,"choices":[{"index":0,"finish_reason":"length","text":tokenStr}]})
+                    await self.send_oai_sse_event(event_str)
                 else:
                     event_str = json.dumps({"token": tokenStr})
                     await self.send_kai_sse_event(event_str)
@@ -608,7 +619,7 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
 
 
     def do_GET(self):
-        global maxctx, maxhordelen, friendlymodelname, KcppVersion, totalgens
+        global maxctx, maxhordelen, friendlymodelname, KcppVersion, totalgens, preloaded_story
         self.path = self.path.rstrip('/')
         response_body = None
         content_type = 'application/json'
@@ -648,8 +659,9 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
             lastp = handle.get_last_process_time()
             laste = handle.get_last_eval_time()
             lastc = handle.get_last_token_count()
+            totalgens = handle.get_total_gens()
             stopreason = handle.get_last_stop_reason()
-            response_body = (json.dumps({"last_process":lastp,"last_eval":laste,"last_token_count":lastc, "stop_reason":stopreason, "queue":requestsinqueue, "idle":(0 if modelbusy.locked() else 1)}).encode())
+            response_body = (json.dumps({"last_process":lastp,"last_eval":laste,"last_token_count":lastc, "total_gens":totalgens, "stop_reason":stopreason, "queue":requestsinqueue, "idle":(0 if modelbusy.locked() else 1)}).encode())
 
         elif self.path.endswith('/api/extra/generate/check'):
             pendtxtStr = ""
@@ -667,6 +679,12 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
                 response_body = (f"KoboldCpp partial API reference can be found at the wiki: https://github.com/LostRuins/koboldcpp/wiki").encode()
             else:
                 response_body = self.embedded_kcpp_docs
+
+        elif self.path=="/api/extra/preloadstory":
+            if preloaded_story is None:
+                response_body = (json.dumps({}).encode())
+            else:
+                response_body = preloaded_story
         elif self.path.endswith(('/api')) or self.path.endswith(('/api/v1')):
             self.path = "/api"
             self.send_response(302)
@@ -798,7 +816,7 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
                     bring_terminal_to_foreground()
 
                 # Check if streaming chat completions, if so, set stream mode to true
-                if api_format == 4 and "stream" in genparams and genparams["stream"]:
+                if (api_format == 4 or api_format == 3) and "stream" in genparams and genparams["stream"]:
                     sse_stream_flag = True
 
                 gen = asyncio.run(self.handle_request(genparams, api_format, sse_stream_flag))
@@ -998,11 +1016,12 @@ def show_new_gui():
 
     model_var = ctk.StringVar()
     lora_var = ctk.StringVar()
-    lora_base_var  = ctk.StringVar()
+    lora_base_var = ctk.StringVar()
+    preloadstory_var = ctk.StringVar()
 
     port_var = ctk.StringVar(value=defaultport)
     host_var = ctk.StringVar(value="")
-    multiuser_var = ctk.IntVar()
+    multiuser_var = ctk.IntVar(value=1)
     horde_name_var = ctk.StringVar(value="koboldcpp")
     horde_gen_var = ctk.StringVar(value=maxhordelen)
     horde_context_var = ctk.StringVar(value=maxhordectx)
@@ -1157,9 +1176,20 @@ def show_new_gui():
             global gui_layers_untouched
             fsize = os.path.getsize(filepath)
             if fsize>10000000: #dont bother with models < 10mb
+                cs = int(contextsize_text[context_var.get()])
                 mem = MaxMemory[0]
-                sizeperlayer = fsize*0.05714
-                layerlimit = int(min(200,mem/sizeperlayer))
+                layerlimit = 0
+
+                if cs and cs > 4096:
+                    fsize *= 1.2
+                elif cs and cs > 2048:
+                    fsize *= 1.1
+
+                if mem < fsize*1.6:
+                    sizeperlayer = fsize*0.052
+                    layerlimit = int(min(200,mem/sizeperlayer))
+                else:
+                    layerlimit = 200 #assume full offload
                 old_gui_layers_untouched = gui_layers_untouched
                 gui_layers_zeroed = gpulayers_var.get()=="" or gpulayers_var.get()=="0"
                 if (gui_layers_untouched or gui_layers_zeroed) and layerlimit>0:
@@ -1389,6 +1419,7 @@ def show_new_gui():
     makefileentry(model_tab, "Model:", "Select GGML Model File", model_var, 1, onchoosefile=autoset_gpu_layers)
     makefileentry(model_tab, "Lora:", "Select Lora File",lora_var, 3)
     makefileentry(model_tab, "Lora Base:", "Select Lora Base File", lora_base_var, 5)
+    makefileentry(model_tab, "Preloaded Story:", "Select Preloaded Story File", preloadstory_var, 7)
 
     # Network Tab
     network_tab = tabcontent["Network"]
@@ -1420,7 +1451,7 @@ def show_new_gui():
                 labels[idx].grid_forget()
         if usehorde_var.get()==1 and (horde_name_var.get()=="koboldcpp" or horde_name_var.get()=="") and model_var.get()!="":
             basefile = os.path.basename(model_var.get())
-            horde_name_var.set(os.path.splitext(basefile)[0])
+            horde_name_var.set(sanitize_string(os.path.splitext(basefile)[0]))
 
     makecheckbox(network_tab, "Configure for Horde", usehorde_var, 6, command=togglehorde)
     togglehorde(1,1,1)
@@ -1490,6 +1521,7 @@ def show_new_gui():
 
         args.model_param = None if model_var.get() == "" else model_var.get()
         args.lora = None if lora_var.get() == "" else ([lora_var.get()] if lora_base_var.get()=="" else [lora_var.get(), lora_base_var.get()])
+        args.preloadstory = None if preloadstory_var.get() == "" else preloadstory_var.get()
 
         args.port_param = defaultport if port_var.get()=="" else int(port_var.get())
         args.host = host_var.get()
@@ -1579,6 +1611,9 @@ def show_new_gui():
                 lora_base_var.set(dict["lora"][1])
             else:
                 lora_var.set(dict["lora"][0])
+
+        if "preloadstory" in dict and dict["preloadstory"]:
+            preloadstory_var.set(dict["preloadstory"])
 
         if "port_param" in dict and dict["port_param"]:
             port_var.set(dict["port_param"])
@@ -1948,6 +1983,7 @@ def unload_libs():
         del handle.get_last_eval_time
         del handle.get_last_process_time
         del handle.get_last_token_count
+        del handle.get_total_gens
         del handle.get_last_stop_reason
         del handle.abort_generate
         del handle.token_count
@@ -2002,6 +2038,17 @@ def main(launch_args,start_server=True):
             show_gui_msgbox("Warning, GUI failed to start",ermsg)
             time.sleep(3)
             sys.exit(2)
+
+    #try to read story if provided
+    if args.preloadstory:
+        if isinstance(args.preloadstory, str) and os.path.exists(args.preloadstory):
+            print(f"Preloading saved story {args.preloadstory} into server...")
+            with open(args.preloadstory, mode='rb') as f:
+                global preloaded_story
+                preloaded_story = f.read()
+                print("Saved story preloaded.")
+        else:
+            print(f"Warning: Saved story file {args.preloadstory} invalid or not found. No story will be preloaded into server.")
 
     # sanitize and replace the default vanity name. remember me....
     if args.model_param!="":
@@ -2186,6 +2233,7 @@ if __name__ == '__main__':
     parser.add_argument("--multiuser", help="Runs in multiuser mode, which queues incoming requests instead of blocking them.", action='store_true')
     parser.add_argument("--remotetunnel", help="Uses Cloudflare to create a remote tunnel, allowing you to access koboldcpp remotely over the internet even behind a firewall.", action='store_true')
     parser.add_argument("--foreground", help="Windows only. Sends the terminal to the foreground every time a new prompt is generated. This helps avoid some idle slowdown issues.", action='store_true')
+    parser.add_argument("--preloadstory", help="Configures a prepared story json save file to be hosted on the server, which frontends (such as Kobold Lite) can access over the API.", default="")
 
     # #deprecated hidden args. they do nothing. do not use
     # parser.add_argument("--psutil_set_threads", action='store_true', help=argparse.SUPPRESS)
