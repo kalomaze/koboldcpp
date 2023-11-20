@@ -6699,6 +6699,31 @@ void read_or_write_temp(float* minTemp, float* maxTemp, float* ExponentVal) {
     }
 }
 
+void read_or_write_ext(bool &worstToken) { // Note the '&' to take a reference
+    std::ifstream infile("ExtStuff.txt");
+    if (!infile.good()) {
+        // File doesn't exist, create it with default values
+        std::ofstream outfile("ExtStuff.txt");
+        outfile << "worstToken = " << worstToken << "\n";
+        outfile.close();
+    } else {
+        // File exists, read the values from it
+        std::string line;
+        while (getline(infile, line)) {
+            std::istringstream iss(line);
+            std::string key, equals;
+            bool value;
+            if ((iss >> key >> equals) && (equals == "=")) {
+                iss >> value; // Properly read the value as a boolean
+                if (key == "worstToken") {
+                    worstToken = value; // Modify the referenced variable
+                }
+            }
+        }
+        infile.close();
+    }
+}
+
 void llama_sample_softmax(struct llama_context * ctx, llama_token_data_array * candidates) {
     GGML_ASSERT(candidates->size > 0);
 
@@ -6712,15 +6737,15 @@ void llama_sample_softmax(struct llama_context * ctx, llama_token_data_array * c
         candidates->sorted = true;
     }
 
-    float max_l = candidates->data[0].logit;
-    float cum_sum = 0.0f;
+    double max_l_double = candidates->data[0].logit;
+    double cum_sum_double = 0.0;
     for (size_t i = 0; i < candidates->size; ++i) {
-        float p = expf(candidates->data[i].logit - max_l);
-        candidates->data[i].p = p;
-        cum_sum += p;
+        double p = exp(candidates->data[i].logit - max_l_double);
+        candidates->data[i].p = p; // Store the probability
+        cum_sum_double += p;
     }
     for (size_t i = 0; i < candidates->size; ++i) {
-        candidates->data[i].p /= cum_sum;
+        candidates->data[i].p /= cum_sum_double;
     }
 
     if (ctx) {
@@ -6758,14 +6783,14 @@ void llama_sample_top_p(struct llama_context * ctx, llama_token_data_array * can
         return;
     }
 
+    llama_sample_softmax(ctx, candidates);
+
     // Print the top tokens before filtering
     printf("Top 10 tokens before TOP P:\n");
     for (size_t i = 0; i < candidates->size && i < 10; ++i) {  // Adjust 10 to however many top tokens you want to display
+        printf("Token %zu (ID: %d): %.6f%%\n", i + 1, candidates->data[i].id, candidates->data[i].p * 100);
         printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);  // Multiplying by 100 to convert to percentage
     }
-
-
-    llama_sample_softmax(ctx, candidates);
 
     const int64_t t_start_sample_us = ggml_time_us();
 
@@ -6782,6 +6807,12 @@ void llama_sample_top_p(struct llama_context * ctx, llama_token_data_array * can
             last_idx = i + 1;
             break;
         }
+    }
+
+    // Print the top tokens before filtering
+    printf("TOP 10 BEFORE RESIZE (TOP P):\n");
+    for (size_t i = 0; i < candidates->size && i < 10; ++i) {  // Adjust 10 to however many top tokens you want to display
+        printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);  // Multiplying by 100 to convert to percentage
     }
 
     // Resize the output vector to keep only the top-p tokens
@@ -6803,13 +6834,19 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
         return;
     }
 
-    llama_sample_softmax(ctx, candidates);
-
     const int64_t t_start_sample_us = ggml_time_us();
 
+    llama_sample_softmax(ctx, candidates);
+
+    // Store original top probability
+    float original_top_prob = candidates->data[0].p;
+
+    // Print the original top probability
+    printf("Original top probability: %.6f%%\n", original_top_prob * 100);  // Multiplying by 100 to convert to percentage
+
     // Print the top tokens before filtering
-    printf("Top 10 tokens before MIN P:\n");
-    for (size_t i = 0; i < candidates->size && i < 10; ++i) {  // Adjust 10 to however many top tokens you want to display
+    printf("Top 15 tokens before MIN P:\n");
+    for (size_t i = 0; i < candidates->size && i < 15; ++i) {  // Adjust 10 to however many top tokens you want to display
         printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);  // Multiplying by 100 to convert to percentage
     }
 
@@ -6833,10 +6870,67 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
     llama_sample_softmax(ctx, candidates);
 
     // Print the top tokens before filtering
-    printf("Remaining (top ten) tokens after MIN P:\n");
-    for (size_t i = 0; i < candidates->size && i < 10; ++i) {  // Adjust 10 to however many top tokens you want to display
+    printf("Remaining (top 15) tokens after MIN P:\n");
+    for (size_t i = 0; i < candidates->size && i < 15; ++i) {  // Adjust 10 to however many top tokens you want to display
         printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);  // Multiplying by 100 to convert to percentage
     }
+
+    // Store a copy of the original logits for binary search
+    std::vector<float> original_logits(candidates->size);
+    for (size_t i = 0; i < candidates->size; ++i) {
+        original_logits[i] = candidates->data[i].logit;
+    }
+
+    // Binary search to find the best temperature scaling factor
+    float low = 0.1, high = 10.0;  // Broad range
+    float best_temp = low;
+    float best_prob_diff = FLT_MAX;
+    float epsilon = 0.0001;
+    while (high - low > epsilon) {
+        float mid = low + (high - low) / 2;
+
+        // Apply mid as temperature to a copy of logits
+        for (size_t j = 0; j < candidates->size; ++j) {
+            candidates->data[j].logit = original_logits[j] / mid;
+        }
+        llama_sample_softmax(ctx, candidates);
+
+        float new_top_prob = candidates->data[0].p;
+        float prob_diff = fabs(new_top_prob - original_top_prob);
+        printf("Testing temperature: %f, New top token probability: %f, Original top token probability: %f\n", mid, new_top_prob, original_top_prob);
+
+        // Update best_temp if this is the closest we have found
+        if (prob_diff < best_prob_diff) {
+            best_temp = mid;
+            best_prob_diff = prob_diff;
+        }
+
+        // Adjust search range
+        if (new_top_prob < original_top_prob) {
+            high = mid;  // Need to increase temperature
+        } else {
+            low = mid;   // Need to decrease temperature
+        }
+
+        // Restore the original logits after each iteration
+        for (size_t j = 0; j < candidates->size; ++j) {
+            candidates->data[j].logit = original_logits[j];
+        }
+    }
+
+    printf("Best matching temperature: %f\n", best_temp);
+    
+    // Apply the best temperature found to original logits
+    //for (size_t j = 0; j < candidates->size; ++j) {
+    //    candidates->data[j].logit = original_logits[j] / best_temp;
+    //}
+    //llama_sample_softmax(ctx, candidates);
+
+    // printf("Best matching temperature: %f\n", best_temp);
+    //printf("Top 10 probabilities after applying best matching temperature:\n");
+    //for (size_t j = 0; j < candidates->size && j < 10; ++j) {
+    //    printf("Token %zu: %.6f%%\n", j + 1, candidates->data[j].p * 100);
+    //}
 
     if (ctx) {
         ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
