@@ -39,6 +39,7 @@ bool generation_finished;
 float last_process_time = 0;
 float last_eval_time = 0;
 int last_token_count = 0;
+int total_gens = 0;
 stop_reason last_stop_reason = stop_reason::INVALID;
 std::vector<std::string> generated_tokens;
 
@@ -597,8 +598,8 @@ void PurgeMissingTokens(llama_context * ctx, std::vector<int> &current_context_t
     //if passed, save beginning of LCQ from old ctx as p1
     //remove all tokens from old ctx between p0 and p1, updating both arrays and kv, then continue as normal
 
-    const int ShortfallThreshold = 200 + (nctx/40); //dont trigger shifting if the distance between trimstart and currhead < this
-    const int SlackAllowance = 50 + (nctx/80); //in case the end text is slightly modified, be forgiving
+    const int ShortfallThreshold = 200 + (nctx/20); //dont trigger shifting if the distance between trimstart and currhead < this
+    const int SlackAllowance = 50 + (nctx/60); //in case the end text is slightly modified, be forgiving
 
     int trimstart = 0;
     int new_tokens_len = new_context_tokens.size();
@@ -696,10 +697,12 @@ ModelLoadResult gpttype_load_model(const load_model_inputs inputs, FileFormat in
     //determine rope scaling params
     float rope_freq_scale = 1.0f;
     float rope_freq_base = 10000.0f;
+    bool overwriteRope = false;
     if(inputs.rope_freq_scale>0.0f)
     {
         rope_freq_scale = inputs.rope_freq_scale;
         rope_freq_base = inputs.rope_freq_base;
+        overwriteRope = true;
         printf("Using Custom RoPE scaling (scale:%.3f, base:%.1f).\n",rope_freq_scale,rope_freq_base);
     }
     else
@@ -721,13 +724,9 @@ ModelLoadResult gpttype_load_model(const load_model_inputs inputs, FileFormat in
             rope_freq_base = (effectivenctx <= 2048 ? 10000.0f : (effectivenctx <= 3072 ? 26000.0f : (effectivenctx <= 4096 ? 32000.0f : (effectivenctx <= 6144 ? 54000.0f :
             (effectivenctx <= 8192 ? 82684.0f : (effectivenctx <= 12288 ? 140000.0f : (effectivenctx <= 16384 ? 200000.0f : (effectivenctx <= 24576 ? 320000.0f : 440000.0f))))))));
 
-            if(file_format_meta.freq_base_train > rope_freq_base)
-            {
-                rope_freq_base = file_format_meta.freq_base_train;
-            }
         }
 
-        printf("Using automatic RoPE scaling (scale:%.3f, base:%.1f)\n",rope_freq_scale,rope_freq_base);
+        printf("Using automatic RoPE scaling. If the model has customized RoPE settings, they will be used directly instead!\n");
     }
     gptj_ctx_v3.hparams.rope_freq_scale = neox_ctx_v3.hparams.rope_freq_scale = rope_freq_scale;
     gptj_ctx_v3.hparams.rope_freq_base = neox_ctx_v3.hparams.rope_freq_base = rope_freq_base;
@@ -902,8 +901,7 @@ ModelLoadResult gpttype_load_model(const load_model_inputs inputs, FileFormat in
         }
         #endif
         model_params.main_gpu = cu_parseinfo_maindevice;
-        llama_ctx_params.rope_freq_base = rope_freq_base;
-        llama_ctx_params.rope_freq_scale = rope_freq_scale;
+
         llama_ctx_params.n_batch = blasbatchsize;
         llama_ctx_params.n_threads = n_threads;
         llama_ctx_params.n_threads_batch = n_blasthreads;
@@ -931,6 +929,40 @@ ModelLoadResult gpttype_load_model(const load_model_inputs inputs, FileFormat in
         }
 
         llama_model * llamamodel = llama_load_model_from_file(modelname.c_str(), model_params);
+        if(overwriteRope)
+        {
+            llama_ctx_params.rope_freq_base = rope_freq_base;
+            llama_ctx_params.rope_freq_scale = rope_freq_scale;
+        }
+        else
+        {
+            //if the model modifes rope in any way, use the model values. Otherwise, use our automatic ones
+            if(llamamodel->hparams.rope_freq_base_train!=10000.0f ||
+            llamamodel->hparams.rope_freq_scale_train!=1.0f ||
+            llamamodel->hparams.rope_scaling_type_train==2)
+            {
+                float ropemultiplier = 1.0f;
+                if(llamamodel->hparams.rope_scaling_type_train!=2 &&
+                llamamodel->hparams.n_ctx_train > 2048 && clamped_max_context_length > llamamodel->hparams.n_ctx_train)
+                {
+                    ropemultiplier = (float)llamamodel->hparams.n_ctx_train / (float)clamped_max_context_length;
+                    llama_ctx_params.rope_freq_base = rope_freq_base = llamamodel->hparams.rope_freq_base_train;
+                    llama_ctx_params.rope_freq_scale = rope_freq_scale = ropemultiplier * llamamodel->hparams.rope_freq_scale_train;
+                    printf("Automatic RoPE Scaling: Using (scale:%.3f, base:%.1f).\n", rope_freq_scale, rope_freq_base);
+                }
+                else
+                {
+                    printf("Automatic RoPE Scaling: Using model internal value.\n");
+                }
+            }
+            else
+            {
+                llama_ctx_params.rope_freq_base = rope_freq_base;
+                llama_ctx_params.rope_freq_scale = rope_freq_scale;
+                printf("Automatic RoPE Scaling: Using (scale:%.3f, base:%.1f).\n", rope_freq_scale, rope_freq_base);
+            }
+        }
+
         llama_ctx_v4 = llama_new_context_with_model(llamamodel, llama_ctx_params);
 
         if (llama_ctx_v4 == NULL)
@@ -1388,6 +1420,7 @@ generation_outputs gpttype_generate(const generation_inputs inputs, generation_o
             stop_sequence.push_back(stopper);
         }
     }
+    std::string addedmemory = inputs.memory;
     params.prompt = inputs.prompt;
     params.seed = inputs.seed;
     params.n_predict = inputs.max_length;
@@ -1442,7 +1475,12 @@ generation_outputs gpttype_generate(const generation_inputs inputs, generation_o
 
     // tokenize the prompt
     std::vector<int> embd_inp;
+    std::vector<int> embd_inp_mem; //for storing added memory
     TokenizeString(params.prompt, embd_inp, file_format);
+    if(addedmemory!="")
+    {
+        TokenizeString(addedmemory, embd_inp_mem, file_format);
+    }
 
     //truncate to front of the prompt if its too long
     int32_t nctx = params.n_ctx;
@@ -1459,6 +1497,46 @@ generation_outputs gpttype_generate(const generation_inputs inputs, generation_o
         {
             embd_inp[0] = bos[0];
         }
+    }
+
+    //added special memory, overwrite if needed
+    if(addedmemory!="")
+    {
+        //remove bos token from prompt, it'll be taken from memory
+        std::vector<int> bos;
+        TokenizeString("", bos, file_format);
+        if (bos.size()>0 && !embd_inp.empty() && bos[0]==embd_inp[0]) {
+            embd_inp.erase(embd_inp.begin());
+        }
+
+        //shorten memory if needed
+        if (embd_inp_mem.size() + params.n_predict + 4 > nctx)
+        {
+            int offset = embd_inp_mem.size() - nctx + params.n_predict + 4;
+            embd_inp_mem = std::vector<int>(embd_inp_mem.begin() + offset, embd_inp_mem.end());
+            //replace bos into front if exists
+            if(bos.size()>0 && embd_inp_mem.size()>0)
+            {
+                embd_inp_mem[0] = bos[0];
+            }
+        }
+
+        //shorten main prompt by trimming the front if needed
+        int addmemtokens = embd_inp_mem.size();
+        int totalsize = (addmemtokens + embd_inp.size() + params.n_predict);
+        if(totalsize > nctx)
+        {
+            int excess = totalsize - nctx;
+            if (embd_inp.size() >= excess) {
+                embd_inp.erase(embd_inp.begin(), embd_inp.begin() + excess);
+            } else {
+                embd_inp.clear();
+            }
+        }
+
+        //stick memory to front of prompt
+        embd_inp.insert(embd_inp.begin(), embd_inp_mem.begin(), embd_inp_mem.end());
+
     }
 
     //determine how much npast we have to rewind from the current state
@@ -1872,7 +1950,9 @@ generation_outputs gpttype_generate(const generation_inputs inputs, generation_o
                     remaining_tokens = 0;
                     if(debugmode!=-1)
                     {
-                        printf("\n(Stop sequence triggered: <%s>)", matched.c_str());
+                        auto match_clean = matched;
+                        replace_all(match_clean, "\n", "\\n");
+                        printf("\n(Stop sequence triggered: %s)", match_clean.c_str());
                     }
                     last_stop_reason = stop_reason::CUSTOM_STOPPER;
                     break;
@@ -1909,6 +1989,7 @@ generation_outputs gpttype_generate(const generation_inputs inputs, generation_o
     last_eval_time = pt2;
     last_process_time = pt1;
     last_token_count = realnpredict;
+    total_gens += 1;
     snprintf(output.text, sizeof(output.text), "%s", concat_output.c_str());
 
     return output;
