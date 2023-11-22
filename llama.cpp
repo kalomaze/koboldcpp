@@ -62,6 +62,7 @@
 #include <cstdio>
 #include <cstring>
 #include <ctime>
+#include <cfloat>
 #include <forward_list>
 #include <fstream>
 #include <functional>
