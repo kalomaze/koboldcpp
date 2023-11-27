@@ -1,0 +1,4 @@
+worstToken = false
+randomizationFactor = 1
+isTrueRNG = true
+rngSeed = 123456789

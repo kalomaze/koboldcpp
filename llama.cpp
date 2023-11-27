@@ -7127,12 +7127,19 @@ void read_or_write_temp(float* minTemp, float* maxTemp, float* ExponentVal) {
     }
 }
 
-void read_or_write_ext(bool &worstToken) { // Note the '&' to take a reference
+void read_or_write_ext(bool &worstToken, float &randomizationFactor, bool &isTrueRNG, unsigned int &rngSeed) {
     std::ifstream infile("ExtStuff.txt");
     if (!infile.good()) {
         // File doesn't exist, create it with default values
         std::ofstream outfile("ExtStuff.txt");
+        if (!outfile) {
+            return;
+        }
+        outfile << std::boolalpha;
         outfile << "worstToken = " << worstToken << "\n";
+        outfile << "randomizationFactor = " << randomizationFactor << "\n";
+        outfile << "isTrueRNG = " << isTrueRNG << "\n";
+        outfile << "rngSeed = " << rngSeed << "\n";
         outfile.close();
     } else {
         // File exists, read the values from it
@@ -7140,11 +7147,15 @@ void read_or_write_ext(bool &worstToken) { // Note the '&' to take a reference
         while (getline(infile, line)) {
             std::istringstream iss(line);
             std::string key, equals;
-            bool value;
             if ((iss >> key >> equals) && (equals == "=")) {
-                iss >> value; // Properly read the value as a boolean
                 if (key == "worstToken") {
-                    worstToken = value; // Modify the referenced variable
+                    iss >> std::boolalpha >> worstToken; // Modify the referenced variable
+                } else if (key == "randomizationFactor") {
+                    iss >> randomizationFactor; // Read the randomizationFactor
+                } else if (key == "isTrueRNG") {
+                    iss >> std::boolalpha >> isTrueRNG; // Read the isTrueRNG
+                } else if (key == "rngSeed") {
+                    iss >> rngSeed; // Read the rngSeed
                 }
             }
         }
@@ -7266,6 +7277,62 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
 
     llama_sample_softmax(ctx, candidates);
 
+    // Variables to hold the external values
+    bool worstToken = false; // unused from earlier experiment, disregard
+    float randomizationFactor = 1.0f; // Default value of the randomization factor
+    bool isTrueRNG = true; // Default value for RNG type, set to true for true randomness
+    unsigned int rngSeed = 123456789; // Default seed value for deterministic RNG
+
+    // Check if the randomizationFactor value is above 0 and apply Gaussian noise if so
+    if (randomizationFactor > 0.0) {
+        printf("Override: Applying Gaussian noise to logits due to the randomizationFactor being greater than 0.0\n");
+
+        // Read or write the external values
+        read_or_write_ext(worstToken, randomizationFactor, isTrueRNG, rngSeed);
+        
+        // Create a random number generator
+        std::default_random_engine generator;
+        if (isTrueRNG) {
+            // Seed with a real random value, if available
+            std::random_device rd;
+            printf("Real RNG seed was used (because isTrueRNG was set to True.)\n");
+            generator.seed(rd());
+        } else {
+            // Use a fixed seed for deterministic behavior
+            generator.seed(rngSeed);
+            printf("Fixed seed was used because isTrueRNG was set to False.\n");
+        }
+
+        // Create a Gaussian distribution with mean 0 and standard deviation of your choice
+        std::normal_distribution<float> distribution(0.0f, randomizationFactor); // Replace 1.0f with the desired standard deviation
+        
+        // Print the randomization factor read from the file
+        printf("Read randomizationFactor from file: %f\n", randomizationFactor);
+
+        // Print the top tokens before filtering
+        printf("Top 15 tokens before NOISY SAMPLING:\n");
+        for (size_t i = 0; i < candidates->size && i < 15; ++i) {
+            printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);
+        }
+
+        // Apply Gaussian noise to each logit
+        for (size_t i = 0; i < candidates->size; ++i) {
+            // Add Gaussian noise to the logit
+            candidates->data[i].logit += distribution(generator);
+        }
+
+        candidates->sorted = false;
+
+        // Re-normalize probabilities if necessary
+        llama_sample_softmax(ctx, candidates);
+
+        // Print the top tokens after filtering
+        printf("Top 15 tokens after NOISY SAMPLING:\n");
+        for (size_t i = 0; i < candidates->size && i < 15; ++i) {
+            printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);
+        }
+    }
+
     // Store original top probability
     float original_top_prob = candidates->data[0].p;
 
@@ -7302,63 +7369,6 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
     for (size_t i = 0; i < candidates->size && i < 15; ++i) {  // Adjust 10 to however many top tokens you want to display
         printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);  // Multiplying by 100 to convert to percentage
     }
-
-    // Store a copy of the original logits for binary search
-    std::vector<float> original_logits(candidates->size);
-    for (size_t i = 0; i < candidates->size; ++i) {
-        original_logits[i] = candidates->data[i].logit;
-    }
-
-    // Binary search to find the best temperature scaling factor
-    float low = 0.1, high = 10.0;  // Broad range
-    float best_temp = low;
-    float best_prob_diff = FLT_MAX;
-    float epsilon = 0.0001;
-    while (high - low > epsilon) {
-        float mid = low + (high - low) / 2;
-
-        // Apply mid as temperature to a copy of logits
-        for (size_t j = 0; j < candidates->size; ++j) {
-            candidates->data[j].logit = original_logits[j] / mid;
-        }
-        llama_sample_softmax(ctx, candidates);
-
-        float new_top_prob = candidates->data[0].p;
-        float prob_diff = fabs(new_top_prob - original_top_prob);
-        printf("Testing temperature: %f, New top token probability: %f, Original top token probability: %f\n", mid, new_top_prob, original_top_prob);
-
-        // Update best_temp if this is the closest we have found
-        if (prob_diff < best_prob_diff) {
-            best_temp = mid;
-            best_prob_diff = prob_diff;
-        }
-
-        // Adjust search range
-        if (new_top_prob < original_top_prob) {
-            high = mid;  // Need to increase temperature
-        } else {
-            low = mid;   // Need to decrease temperature
-        }
-
-        // Restore the original logits after each iteration
-        for (size_t j = 0; j < candidates->size; ++j) {
-            candidates->data[j].logit = original_logits[j];
-        }
-    }
-
-    printf("Best matching temperature: %f\n", best_temp);
-    
-    // Apply the best temperature found to original logits
-    //for (size_t j = 0; j < candidates->size; ++j) {
-    //    candidates->data[j].logit = original_logits[j] / best_temp;
-    //}
-    //llama_sample_softmax(ctx, candidates);
-
-    // printf("Best matching temperature: %f\n", best_temp);
-    //printf("Top 10 probabilities after applying best matching temperature:\n");
-    //for (size_t j = 0; j < candidates->size && j < 10; ++j) {
-    //    printf("Token %zu: %.6f%%\n", j + 1, candidates->data[j].p * 100);
-    //}
 
     if (ctx) {
         ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
