@@ -70,7 +70,8 @@ class generation_inputs(ctypes.Structure):
                 ("stop_sequence", ctypes.c_char_p * stop_token_max),
                 ("stream_sse", ctypes.c_bool),
                 ("grammar", ctypes.c_char_p),
-                ("grammar_retain_state", ctypes.c_bool)]
+                ("grammar_retain_state", ctypes.c_bool),
+                ("quiet", ctypes.c_bool)]
 
 class generation_outputs(ctypes.Structure):
     _fields_ = [("status", ctypes.c_int),
@@ -299,7 +300,7 @@ def load_model(model_filename):
     ret = handle.load_model(inputs)
     return ret
 
-def generate(prompt, memory="", max_length=32, max_context_length=512, temperature=0.7, top_k=100, top_a=0.0, top_p=0.92, min_p=0.0, typical_p=1.0, tfs=1.0, rep_pen=1.1, rep_pen_range=128, mirostat=0, mirostat_tau=5.0, mirostat_eta=0.1, sampler_order=[6,0,1,3,4,2,5], seed=-1, stop_sequence=[], use_default_badwordsids=False, stream_sse=False, grammar='', grammar_retain_state=False, genkey='', trimstop=False):
+def generate(prompt, memory="", max_length=32, max_context_length=512, temperature=0.7, top_k=100, top_a=0.0, top_p=0.92, min_p=0.0, typical_p=1.0, tfs=1.0, rep_pen=1.1, rep_pen_range=128, mirostat=0, mirostat_tau=5.0, mirostat_eta=0.1, sampler_order=[6,0,1,3,4,2,5], seed=-1, stop_sequence=[], use_default_badwordsids=False, stream_sse=False, grammar='', grammar_retain_state=False, genkey='', trimstop=False, quiet=False):
     global maxctx, args, currentusergenkey, totalgens
     inputs = generation_inputs()
     outputs = ctypes.create_unicode_buffer(ctypes.sizeof(generation_outputs))
@@ -309,9 +310,11 @@ def generate(prompt, memory="", max_length=32, max_context_length=512, temperatu
         max_length = max_context_length-1
     inputs.max_context_length = max_context_length   # this will resize the context buffer if changed
     global showmaxctxwarning
-    if showmaxctxwarning and max_context_length > maxctx:
-        print(f"\n(Warning! Request max_context_length={max_context_length} exceeds allocated context size of {maxctx}. Consider launching with increased --contextsize to avoid errors. This message will only show once per session.)")
-        showmaxctxwarning = False
+    if max_context_length > maxctx:
+        if showmaxctxwarning:
+            print(f"\n(Warning! Request max_context_length={max_context_length} exceeds allocated context size of {maxctx}. It will be reduced to fit. Consider launching with increased --contextsize to avoid errors. This message will only show once per session.)")
+            showmaxctxwarning = False
+        max_context_length = maxctx
     inputs.max_length = max_length
     inputs.temperature = temperature
     inputs.top_k = top_k
@@ -323,6 +326,7 @@ def generate(prompt, memory="", max_length=32, max_context_length=512, temperatu
     inputs.rep_pen = rep_pen
     inputs.rep_pen_range = rep_pen_range
     inputs.stream_sse = stream_sse
+    inputs.quiet = quiet
     inputs.grammar = grammar.encode("UTF-8")
     inputs.grammar_retain_state = grammar_retain_state
     inputs.unban_tokens_rt = not use_default_badwordsids
@@ -388,7 +392,7 @@ maxhordelen = 256
 modelbusy = threading.Lock()
 requestsinqueue = 0
 defaultport = 5001
-KcppVersion = "1.50.1"
+KcppVersion = "1.51.1"
 showdebug = True
 showsamplerwarning = True
 showmaxctxwarning = True
@@ -425,6 +429,7 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
 
     async def generate_text(self, genparams, api_format, stream_flag):
         global friendlymodelname
+        is_quiet = args.quiet
         def run_blocking(): #api format 1=basic,2=kai,3=oai,4=oai-chat
             if api_format==1:
                 genparams["prompt"] = genparams.get('text', "")
@@ -503,7 +508,8 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
                 grammar=genparams.get('grammar', ''),
                 grammar_retain_state = genparams.get('grammar_retain_state', False),
                 genkey=genparams.get('genkey', ''),
-                trimstop=genparams.get('trim_stop', False))
+                trimstop=genparams.get('trim_stop', False),
+                quiet=is_quiet)
 
         recvtxt = ""
         if stream_flag:
@@ -513,7 +519,7 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
         else:
             recvtxt = run_blocking()
 
-        if args.debugmode!=-1:
+        if (args.debugmode != -1 and not is_quiet) or args.debugmode >= 1:
             utfprint("\nOutput: " + recvtxt)
 
         if api_format==1:
@@ -534,7 +540,10 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
 
 
     async def send_oai_sse_event(self, data):
-        self.wfile.write(f'data: {data}\r\n\r\n'.encode())
+        if data=="[DONE]":
+            self.wfile.write(f'data: {data}'.encode())
+        else:
+            self.wfile.write(f'data: {data}\r\n\r\n'.encode())
         self.wfile.flush()
 
     async def send_kai_sse_event(self, data):
@@ -676,9 +685,13 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
         elif self.path=="/api":
             content_type = 'text/html'
             if self.embedded_kcpp_docs is None:
-                response_body = (f"KoboldCpp partial API reference can be found at the wiki: https://github.com/LostRuins/koboldcpp/wiki").encode()
+                response_body = (f"KoboldCpp API is running!\n\nAPI usage reference can be found at the wiki: https://github.com/LostRuins/koboldcpp/wiki").encode()
             else:
                 response_body = self.embedded_kcpp_docs
+
+        elif self.path=="/v1":
+            content_type = 'text/html'
+            response_body = (f"KoboldCpp OpenAI compatible endpoint is running!\n\nFor usage reference, see https://platform.openai.com/docs/api-reference").encode()
 
         elif self.path=="/api/extra/preloadstory":
             if preloaded_story is None:
@@ -766,7 +779,10 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         reqblocking = False
-        if args.multiuser and requestsinqueue < 4: #up to 5 concurrent requests
+        muint = int(args.multiuser)
+        multiuserlimit = ((muint-1) if muint > 1 else 4)
+        #backwards compatibility for up to 5 concurrent requests, use default limit of 5 if multiuser set to 1
+        if muint > 0 and requestsinqueue < multiuserlimit:
             reqblocking = True
             requestsinqueue += 1
         if not modelbusy.acquire(blocking=reqblocking):
@@ -809,7 +825,8 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
                     utfprint("Body Err: " + str(body))
                     return self.send_response(503)
 
-                if args.debugmode!=-1:
+                is_quiet = args.quiet
+                if (args.debugmode != -1 and not is_quiet) or args.debugmode >= 1:
                     utfprint("\nInput: " + json.dumps(genparams))
 
                 if args.foreground:
@@ -998,6 +1015,7 @@ def show_new_gui():
     usemlock = ctk.IntVar()
     debugmode = ctk.IntVar()
     keepforeground = ctk.IntVar()
+    quietmode = ctk.IntVar(value=0)
 
     lowvram_var = ctk.IntVar()
     mmq_var = ctk.IntVar(value=1)
@@ -1430,6 +1448,7 @@ def show_new_gui():
 
     makecheckbox(network_tab, "Multiuser Mode", multiuser_var, 3)
     makecheckbox(network_tab, "Remote Tunnel", remotetunnel, 3, 1)
+    makecheckbox(network_tab, "Quiet Mode", quietmode, 4)
 
     # horde
     makelabel(network_tab, "Horde:", 5).grid(pady=10)
@@ -1477,6 +1496,7 @@ def show_new_gui():
         args.noshift = contextshift.get()==0
         args.remotetunnel = remotetunnel.get()==1
         args.foreground = keepforeground.get()==1
+        args.quiet = quietmode.get()==1
 
         gpuchoiceidx = 0
         if gpu_choice_var.get()!="All":
@@ -1525,7 +1545,7 @@ def show_new_gui():
 
         args.port_param = defaultport if port_var.get()=="" else int(port_var.get())
         args.host = host_var.get()
-        args.multiuser = multiuser_var.get() == 1
+        args.multiuser = multiuser_var.get()
 
         if horde_apikey_var.get()=="" or horde_workername_var.get()=="":
             args.hordeconfig = None if usehorde_var.get() == 0 else [horde_name_var.get(), horde_gen_var.get(), horde_context_var.get()]
@@ -1545,6 +1565,7 @@ def show_new_gui():
         contextshift.set(0 if "noshift" in dict and dict["noshift"] else 1)
         remotetunnel.set(1 if "remotetunnel" in dict and dict["remotetunnel"] else 0)
         keepforeground.set(1 if "foreground" in dict and dict["foreground"] else 0)
+        quietmode.set(1 if "quiet" in dict and dict["quiet"] else 0)
         if "useclblast" in dict and dict["useclblast"]:
             if "noavx2" in dict and dict["noavx2"]:
                 if clblast_noavx2_option is not None:
@@ -1621,7 +1642,8 @@ def show_new_gui():
         if "host" in dict and dict["host"]:
             host_var.set(dict["host"])
 
-        multiuser_var.set(1 if "multiuser" in dict and dict["multiuser"] else 0)
+        if "multiuser" in dict:
+            multiuser_var.set(dict["multiuser"])
 
         if "hordeconfig" in dict and dict["hordeconfig"] and len(dict["hordeconfig"]) > 1:
             horde_name_var.set(dict["hordeconfig"][0])
@@ -1898,6 +1920,10 @@ def setuptunnel():
                     found = re.findall(pattern, line)
                     for x in found:
                         tunneloutput = x
+
+                        print(f"Your remote Kobold API can be found at {tunneloutput}/api")
+                        print(f"Your remote OpenAI Compatible API can be found at {tunneloutput}/v1")
+                        print("======\n")
                         print(f"Your remote tunnel is ready, please connect to {tunneloutput}")
                         return
 
@@ -2153,12 +2179,15 @@ def main(launch_args,start_server=True):
 
     if args.port_param!=defaultport:
         args.port = args.port_param
-    print(f"Starting Kobold HTTP Server on port {args.port}")
+
     epurl = ""
     if args.host=="":
         epurl = f"http://localhost:{args.port}"
     else:
         epurl = f"http://{args.host}:{args.port}"
+    if not args.remotetunnel:
+        print(f"Starting Kobold API on port {args.port} at {epurl}/api/")
+        print(f"Starting OpenAI Compatible API on port {args.port} at {epurl}/v1/")
 
     if args.launch:
         try:
@@ -2184,7 +2213,7 @@ def main(launch_args,start_server=True):
     if start_server:
         if args.remotetunnel:
             setuptunnel()
-        print(f"Please connect to custom endpoint at {epurl}")
+        print(f"======\nPlease connect to custom endpoint at {epurl}")
         asyncio.run(RunServerMultiThreaded(args.host, args.port, embedded_kailite, embedded_kcpp_docs))
     else:
         print(f"Server was not started, main function complete. Idling.")
@@ -2229,11 +2258,12 @@ if __name__ == '__main__':
     compatgroup.add_argument("--usecublas", help="Use CuBLAS for GPU Acceleration. Requires CUDA. Select lowvram to not allocate VRAM scratch buffer. Enter a number afterwards to select and use 1 GPU. Leaving no number will use all GPUs. For hipBLAS binaries, please check YellowRoseCx rocm fork.", nargs='*',metavar=('[lowvram|normal] [main GPU ID] [mmq]'), choices=['normal', 'lowvram', '0', '1', '2', '3', 'mmq'])
     parser.add_argument("--gpulayers", help="Set number of layers to offload to GPU when using GPU. Requires GPU.",metavar=('[GPU layers]'), type=int, default=0)
     parser.add_argument("--tensor_split", help="For CUDA with ALL GPU set only, ratio to split tensors across multiple GPUs, space-separated list of proportions, e.g. 7 3", metavar=('[Ratios]'), type=float, nargs='+')
-    parser.add_argument("--onready", help="An optional shell command to execute after the model has been loaded.", type=str, default="",nargs=1)
-    parser.add_argument("--multiuser", help="Runs in multiuser mode, which queues incoming requests instead of blocking them.", action='store_true')
+    parser.add_argument("--onready", help="An optional shell command to execute after the model has been loaded.", metavar=('[shell command]'), type=str, default="",nargs=1)
+    parser.add_argument("--multiuser", help="Runs in multiuser mode, which queues incoming requests instead of blocking them.", metavar=('limit'), nargs='?', const=1, type=int, default=0)
     parser.add_argument("--remotetunnel", help="Uses Cloudflare to create a remote tunnel, allowing you to access koboldcpp remotely over the internet even behind a firewall.", action='store_true')
     parser.add_argument("--foreground", help="Windows only. Sends the terminal to the foreground every time a new prompt is generated. This helps avoid some idle slowdown issues.", action='store_true')
     parser.add_argument("--preloadstory", help="Configures a prepared story json save file to be hosted on the server, which frontends (such as Kobold Lite) can access over the API.", default="")
+    parser.add_argument("--quiet", help="Enable quiet mode, which hides generation inputs and outputs in the terminal. Quiet mode is automatically enabled when running --hordeconfig.", action='store_true')
 
     # #deprecated hidden args. they do nothing. do not use
     # parser.add_argument("--psutil_set_threads", action='store_true', help=argparse.SUPPRESS)
