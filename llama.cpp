@@ -7242,12 +7242,12 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
 
     // Variables to hold the external values
     bool worstToken = false; // unused from earlier experiment, disregard
-    float randomizationFactor = 1.0f; // Default value of the randomization factor
+    float randomizationFactor = 0.0f; // Default value of the randomization factor
     bool isTrueRNG = true; // Default value for RNG type, set to true for true randomness
     unsigned int rngSeed = 123456789; // Default seed value for deterministic RNG
 
     // Check if the randomizationFactor value is above 0 and apply Gaussian noise if so
-    if (randomizationFactor > 0.0) {
+    if (randomizationFactor > 0.0f) {
         printf("Override: Applying Gaussian noise to logits due to the randomizationFactor being greater than 0.0\n");
 
         // Read or write the external values
