@@ -2470,8 +2470,8 @@ static void llm_load_hparams(
     ml.get_key  (LLM_KV_BLOCK_COUNT,          hparams.n_layer);
     ml.get_key  (LLM_KV_EXPERT_COUNT,         hparams.n_expert,      false);
 
-    // Declare the custom expert used count variable and initialize it to 1
-    int CUSTOM_EXPERT_USED_COUNT = 1;
+    // Declare the custom expert used count variable and initialize it to 2
+    int CUSTOM_EXPERT_USED_COUNT = 2;
     std::string filename = "experts.txt";
 
     // Try to open the file for reading
@@ -2481,14 +2481,14 @@ static void llm_load_hparams(
         if (!(infile >> CUSTOM_EXPERT_USED_COUNT)) {
             // If reading fails, set CUSTOM_EXPERT_USED_COUNT to an error value or handle the error as needed
             printf("Error reading from file: %s\n", filename.c_str());
-            CUSTOM_EXPERT_USED_COUNT = 1; // Default value or error value
+            CUSTOM_EXPERT_USED_COUNT = 2; // Default value
         }
         infile.close(); // Close the file after reading or failing to read
     } else {
         // The file doesn't exist or couldn't be opened for reading. Try creating it.
         std::ofstream outfile(filename);
         if (outfile.is_open()) {
-            outfile << CUSTOM_EXPERT_USED_COUNT; // Write 1 to the file
+            outfile << CUSTOM_EXPERT_USED_COUNT; // Write 2 to the file
             outfile.close(); // Close the file after writing
         } else {
             // If the file couldn't be opened for writing, print an error message
