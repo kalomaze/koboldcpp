@@ -7776,12 +7776,12 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
 
     // Variables to hold the external values
     bool worstToken = false; // unused from earlier experiment, disregard
-    float randomizationFactor = 0.0f; // Default value of the randomization factor
+    float randomizationFactor = 0.1; // Default value of the randomization factor
     bool isTrueRNG = true; // Default value for RNG type, set to true for true randomness
     unsigned int rngSeed = 123456789; // Default seed value for deterministic RNG
 
     // Check if the randomizationFactor value is above 0 and apply Gaussian noise if so
-    if (randomizationFactor > 0.0f) {
+    if (randomizationFactor > 0.0) {
         printf("Override: Applying Gaussian noise to logits due to the randomizationFactor being greater than 0.0\n");
 
         // Read or write the external values
@@ -8204,11 +8204,11 @@ void llama_sample_temp(struct llama_context * ctx, llama_token_data_array * cand
 }
 
 void llama_sample_temperature(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
-    if (temp >= 1.90 && temp <= 1.92) {
+    if (temp >= 3.89 && temp <= 3.91) {
         llama_sample_greedy_dynamic_temp(ctx, candidates_p, temp);
     } else if (temp >= 1.83 && temp <= 1.85) {
         llama_sample_entropy(ctx, candidates_p, temp);
-    } else if (temp >= 1.99 && temp <= 2.01) {
+    } else if (temp >= 2.19 && temp <= 2.21) {
         llama_sample_hhi(ctx, candidates_p, temp);
     } else {
         // Default sampling method
