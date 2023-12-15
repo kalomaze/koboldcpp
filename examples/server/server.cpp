@@ -377,7 +377,6 @@ struct llama_client_slot
 
     int32_t num_prompt_tokens           = 0;
     int32_t num_prompt_tokens_processed = 0;
-    int32_t multibyte_pending           = 0;
 
     json prompt;
     std::string generated_text;
@@ -426,7 +425,6 @@ struct llama_client_slot
         stopped_word           = false;
         stopped_limit          = false;
         stopping_word          = "";
-        multibyte_pending      = 0;
         n_past                 = 0;
         sent_count             = 0;
         sent_token_probs_index = 0;
@@ -993,35 +991,36 @@ struct llama_server_context
         slot.generated_text += token_str;
         slot.has_next_token = true;
 
-        if (slot.multibyte_pending > 0)
+        // check if there is incomplete UTF-8 character at the end
+        bool incomplete = false;
+        for (unsigned i = 1; i < 5 && i <= slot.generated_text.size(); ++i)
         {
-            slot.multibyte_pending -= token_str.size();
-        }
-        else if (token_str.size() == 1)
-        {
-            const char c = token_str[0];
-            // 2-byte characters: 110xxxxx 10xxxxxx
+            unsigned char c = slot.generated_text[slot.generated_text.size() - i];
+            if ((c & 0xC0) == 0x80)
+            {
+                // continuation byte: 10xxxxxx
+                continue;
+            }
             if ((c & 0xE0) == 0xC0)
             {
-                slot.multibyte_pending = 1;
-                // 3-byte characters: 1110xxxx 10xxxxxx 10xxxxxx
+                // 2-byte character: 110xxxxx ...
+                incomplete = i < 2;
             }
             else if ((c & 0xF0) == 0xE0)
             {
-                slot.multibyte_pending = 2;
-                // 4-byte characters: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+                // 3-byte character: 1110xxxx ...
+                incomplete = i < 3;
             }
             else if ((c & 0xF8) == 0xF0)
             {
-                slot.multibyte_pending = 3;
+                // 4-byte character: 11110xxx ...
+                incomplete = i < 4;
             }
-            else
-            {
-                slot.multibyte_pending = 0;
-            }
+            // else 1-byte character or invalid byte
+            break;
         }
 
-        if (slot.multibyte_pending == 0)
+        if (!incomplete)
         {
             size_t pos = std::min(slot.sent_count, slot.generated_text.size());
             const std::string str_test = slot.generated_text.substr(pos);
@@ -1056,7 +1055,7 @@ struct llama_server_context
             }
         }
 
-        if (slot.multibyte_pending > 0 && !slot.has_next_token)
+        if (incomplete)
         {
             slot.has_next_token = true;
         }
@@ -1470,7 +1469,7 @@ struct llama_server_context
 
     int split_multiprompt_task(task_server& multiprompt_task)
     {
-        auto prompt_count = multiprompt_task.data.at("prompt").size();
+        int prompt_count = multiprompt_task.data.at("prompt").size();
         assert(prompt_count > 1);
 
         int multitask_id = id_gen++;
@@ -2109,10 +2108,6 @@ static void server_params_parse(int argc, char **argv, server_params &sparams,
             }
             params.yarn_beta_slow = std::stof(argv[i]);
         }
-        else if (arg == "--memory-f32" || arg == "--memory_f32")
-        {
-            params.memory_f16 = false;
-        }
         else if (arg == "--threads" || arg == "-t")
         {
             if (++i >= argc)
@@ -2387,7 +2382,9 @@ json oaicompat_completion_params_parse(
     llama_params["__oaicompat"] = true;
 
     // Map OpenAI parameters to llama.cpp parameters
+    llama_params["model"]             = json_value(body, "model", std::string("uknown"));
     llama_params["prompt"]            = format_chatml(body["messages"]); // OpenAI 'messages' to llama.cpp 'prompt'
+    llama_params["cache_prompt"]      = json_value(body, "cache_prompt", false);
     llama_params["temperature"]       = json_value(body, "temperature", 0.8);
     llama_params["top_k"]             = json_value(body, "top_k", 40);
     llama_params["top_p"]             = json_value(body, "top_p", 0.95);
@@ -2411,9 +2408,7 @@ json oaicompat_completion_params_parse(
     }
 
     // Handle 'stop' field
-    if (body["stop"].is_null()) {
-        llama_params["stop"] = json::array({});
-    } else if (body["stop"].is_string()) {
+    if (body.contains("stop") && body["stop"].is_string()) {
         llama_params["stop"] = json::array({body["stop"].get<std::string>()});
     } else {
         llama_params["stop"] = json_value(body, "stop", json::array());

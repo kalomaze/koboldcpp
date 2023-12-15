@@ -28,7 +28,6 @@ struct load_model_inputs
     const int blasthreads;
     const int max_context_length;
     const int batch_size;
-    const bool f16_kv;
     const bool low_vram;
     const bool use_mmq;
     const char * executable_path;
@@ -82,6 +81,11 @@ struct generation_outputs
 {
     int status = -1;
     char text[32768]; //32kb should be enough for any response
+};
+struct token_count_outputs
+{
+    int count = 0;
+    int * ids; //we'll just use shared memory for this one, bit of a hack
 };
 
 extern std::string executable_path;

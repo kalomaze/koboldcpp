@@ -24,7 +24,6 @@ class load_model_inputs(ctypes.Structure):
                 ("blasthreads", ctypes.c_int),
                 ("max_context_length", ctypes.c_int),
                 ("batch_size", ctypes.c_int),
-                ("f16_kv", ctypes.c_bool),
                 ("low_vram", ctypes.c_bool),
                 ("use_mmq", ctypes.c_bool),
                 ("executable_path", ctypes.c_char_p),
@@ -76,6 +75,10 @@ class generation_inputs(ctypes.Structure):
 class generation_outputs(ctypes.Structure):
     _fields_ = [("status", ctypes.c_int),
                 ("text", ctypes.c_char * 32768)]
+
+class token_count_outputs(ctypes.Structure):
+    _fields_ = [("count", ctypes.c_int),
+                ("ids", ctypes.POINTER(ctypes.c_int))]
 
 handle = None
 
@@ -218,7 +221,7 @@ def init_library():
     handle.get_total_gens.restype = ctypes.c_int
     handle.get_last_stop_reason.restype = ctypes.c_int
     handle.abort_generate.restype = ctypes.c_bool
-    handle.token_count.restype = ctypes.c_int
+    handle.token_count.restype = token_count_outputs
     handle.get_pending_output.restype = ctypes.c_char_p
 
 def load_model(model_filename):
@@ -231,7 +234,6 @@ def load_model(model_filename):
     inputs.low_vram = (True if (args.usecublas and "lowvram" in args.usecublas) else False)
     inputs.use_mmq = (True if (args.usecublas and "mmq" in args.usecublas) else False)
     inputs.blasthreads = args.blasthreads
-    inputs.f16_kv = True
     inputs.use_mmap = (not args.nommap)
     inputs.use_mlock = args.usemlock
     inputs.lora_filename = "".encode("UTF-8")
@@ -308,13 +310,13 @@ def generate(prompt, memory="", max_length=32, max_context_length=512, temperatu
     inputs.memory = memory.encode("UTF-8")
     if max_length >= max_context_length:
         max_length = max_context_length-1
-    inputs.max_context_length = max_context_length   # this will resize the context buffer if changed
     global showmaxctxwarning
     if max_context_length > maxctx:
         if showmaxctxwarning:
             print(f"\n(Warning! Request max_context_length={max_context_length} exceeds allocated context size of {maxctx}. It will be reduced to fit. Consider launching with increased --contextsize to avoid errors. This message will only show once per session.)")
             showmaxctxwarning = False
         max_context_length = maxctx
+    inputs.max_context_length = max_context_length   # this will resize the context buffer if changed
     inputs.max_length = max_length
     inputs.temperature = temperature
     inputs.top_k = top_k
@@ -392,14 +394,14 @@ maxhordelen = 256
 modelbusy = threading.Lock()
 requestsinqueue = 0
 defaultport = 5001
-KcppVersion = "1.51.1"
+KcppVersion = "1.52.1"
 showdebug = True
 showsamplerwarning = True
 showmaxctxwarning = True
 session_kudos_earned = 0
 session_jobs = 0
 session_starttime = None
-exitcounter = 0
+exitcounter = -1
 punishcounter = 0 #causes a timeout if too many errors
 rewardcounter = 0 #reduces error counts for successful jobs
 totalgens = 0
@@ -626,9 +628,87 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
         except Exception as e:
             print(e)
 
+    def noscript_webui(self):
+        global modelbusy
+        import html
+        import urllib.parse as urlparse
+        parsed_url = urlparse.urlparse(self.path)
+        parsed_dict = urlparse.parse_qs(parsed_url.query)
+        reply = ""
+        status = str(parsed_dict['status'][0]) if 'status' in parsed_dict else "Ready To Generate"
+        prompt = str(parsed_dict['prompt'][0]) if 'prompt' in parsed_dict else ""
+        max_length = int(parsed_dict['max_length'][0]) if 'max_length' in parsed_dict else 100
+        temperature = float(parsed_dict['temperature'][0]) if 'temperature' in parsed_dict else 0.7
+        top_k = int(parsed_dict['top_k'][0]) if 'top_k' in parsed_dict else 100
+        top_p = float(parsed_dict['top_p'][0]) if 'top_p' in parsed_dict else 0.9
+        rep_pen = float(parsed_dict['rep_pen'][0]) if 'rep_pen' in parsed_dict else 1.1
+        use_default_badwordsids = int(parsed_dict['use_default_badwordsids'][0]) if 'use_default_badwordsids' in parsed_dict else 0
+        gencommand = (parsed_dict['generate'][0] if 'generate' in parsed_dict else "")=="Generate"
+
+        if modelbusy.locked():
+            status = "Model is currently busy, try again later."
+        elif gencommand:
+            if prompt=="" or max_length<=0:
+                status = "Need a valid prompt and length to generate."
+            else:
+                if max_length>512:
+                    max_length = 512
+                epurl = f"http://localhost:{args.port}"
+                if args.host!="":
+                    epurl = f"http://{args.host}:{args.port}"
+                gen_payload = {"prompt": prompt,"max_length": max_length,"temperature": temperature,"prompt": prompt,"top_k": top_k,"top_p": top_p,"rep_pen": rep_pen,"use_default_badwordsids":use_default_badwordsids}
+                respjson = make_url_request(f'{epurl}/api/v1/generate', gen_payload)
+                reply = html.escape(respjson["results"][0]["text"])
+                status = "Generation Completed"
+
+            if "generate" in parsed_dict:
+                del parsed_dict["generate"]
+            parsed_dict["prompt"] = prompt + reply
+            parsed_dict["status"] = status
+            updated_query_string = urlparse.urlencode(parsed_dict, doseq=True)
+            updated_path = parsed_url._replace(query=updated_query_string).geturl()
+            self.path = updated_path
+            self.send_response(302)
+            self.send_header("location", self.path)
+            self.end_headers(content_type='text/html')
+            return
+
+        finalhtml = f'''<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KoboldCpp NoScript Mode</title></head><body>
+<h2>KoboldCpp NoScript Mode</h2>
+<div>
+<p>KoboldCpp can be used without Javascript enabled, however this is not recommended.
+<br>If you have Javascript, please use <a href="/">Kobold Lite WebUI</a> instead.</p><hr>
+<form action="/noscript">
+Enter Prompt:<br>
+<textarea name="prompt" cols="60" rows="8" wrap="soft" placeholder="Enter Prompt Here">{prompt}</textarea>
+<hr>
+<b>{status}</b><br>
+<hr>
+<label>Gen. Amount</label> <input type="text" size="4" value="{max_length}" name="max_length"><br>
+<label>Temperature</label> <input type="text" size="4" value="{temperature}" name="temperature"><br>
+<label>Top-K</label> <input type="text" size="4" value="{top_k}" name="top_k"><br>
+<label>Top-P</label> <input type="text" size="4" value="{top_p}" name="top_p"><br>
+<label>Rep. Pen</label> <input type="text" size="4" value="{rep_pen}" name="rep_pen"><br>
+<label>Ignore EOS</label> <input type="checkbox" name="use_default_badwordsids" value="1" {"checked" if use_default_badwordsids else ""}><br>
+<input type="submit" name="generate" value="Generate"> (Please be patient)
+</form>
+<form action="/noscript">
+<input type="submit" value="Reset">
+</form>
+</div>
+</body></html>'''
+        finalhtml = finalhtml.encode('utf-8')
+        self.send_response(200)
+        self.send_header('content-length', str(len(finalhtml)))
+        self.end_headers(content_type='text/html')
+        self.wfile.write(finalhtml)
 
     def do_GET(self):
-        global maxctx, maxhordelen, friendlymodelname, KcppVersion, totalgens, preloaded_story
+        global maxctx, maxhordelen, friendlymodelname, KcppVersion, totalgens, preloaded_story, exitcounter
         self.path = self.path.rstrip('/')
         response_body = None
         content_type = 'application/json'
@@ -639,6 +719,10 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
                 response_body = (f"Embedded Kobold Lite is not found.<br>You will have to connect via the main KoboldAI client, or <a href='https://lite.koboldai.net?local=1&port={self.port}'>use this URL</a> to connect.").encode()
             else:
                 response_body = self.embedded_kailite
+
+        elif self.path in ["/noscript", "/noscript?"] or self.path.startswith(('/noscript?','noscript?')): #it's possible for the root url to have ?params without /
+            self.noscript_webui()
+            return
 
         elif self.path.endswith(('/api/v1/model', '/api/latest/model')):
             response_body = (json.dumps({'result': friendlymodelname }).encode())
@@ -670,7 +754,7 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
             lastc = handle.get_last_token_count()
             totalgens = handle.get_total_gens()
             stopreason = handle.get_last_stop_reason()
-            response_body = (json.dumps({"last_process":lastp,"last_eval":laste,"last_token_count":lastc, "total_gens":totalgens, "stop_reason":stopreason, "queue":requestsinqueue, "idle":(0 if modelbusy.locked() else 1)}).encode())
+            response_body = (json.dumps({"last_process":lastp,"last_eval":laste,"last_token_count":lastc, "total_gens":totalgens, "stop_reason":stopreason, "queue":requestsinqueue, "idle":(0 if modelbusy.locked() else 1), "hordeexitcounter":exitcounter}).encode())
 
         elif self.path.endswith('/api/extra/generate/check'):
             pendtxtStr = ""
@@ -729,8 +813,11 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
             try:
                 genparams = json.loads(body)
                 countprompt = genparams.get('prompt', "")
-                count = handle.token_count(countprompt.encode("UTF-8"))
-                response_body = (json.dumps({"value": count}).encode())
+                rawcountdata = handle.token_count(countprompt.encode("UTF-8"))
+                countlimit = rawcountdata.count if (rawcountdata.count>=0 and rawcountdata.count<50000) else 0
+                # the above protects the server in case the count limit got corrupted
+                countdata = [rawcountdata.ids[i] for i in range(countlimit)]
+                response_body = (json.dumps({"value": len(countdata),"ids": countdata}).encode())
 
             except Exception as e:
                 utfprint("Count Tokens - Body Error: " + str(e))
@@ -1189,6 +1276,15 @@ def show_new_gui():
         changed_gpu_choice_var()
         return
 
+    def on_picked_model_file(filepath):
+        if filepath.lower().endswith('.kcpps'):
+            #load it as a config file instead
+            with open(filepath, 'r') as f:
+                dict = json.load(f)
+                import_vars(dict)
+        else:
+            autoset_gpu_layers(filepath)
+
     def autoset_gpu_layers(filepath): #shitty algo to determine how many layers to use
         try:
             global gui_layers_untouched
@@ -1363,7 +1459,7 @@ def show_new_gui():
     makeslider(quick_tab, "Context Size:", contextsize_text, context_var, 0, len(contextsize_text)-1, 30, set=3)
 
     # load model
-    makefileentry(quick_tab, "Model:", "Select GGML Model File", model_var, 40, 170, onchoosefile=autoset_gpu_layers)
+    makefileentry(quick_tab, "Model:", "Select GGML Model File", model_var, 40, 170, onchoosefile=on_picked_model_file)
 
     # Hardware Tab
     hardware_tab = tabcontent["Hardware"]
@@ -1434,7 +1530,7 @@ def show_new_gui():
     # Model Tab
     model_tab = tabcontent["Model"]
 
-    makefileentry(model_tab, "Model:", "Select GGML Model File", model_var, 1, onchoosefile=autoset_gpu_layers)
+    makefileentry(model_tab, "Model:", "Select GGML Model File", model_var, 1, onchoosefile=on_picked_model_file)
     makefileentry(model_tab, "Lora:", "Select Lora File",lora_var, 3)
     makefileentry(model_tab, "Lora Base:", "Select Lora Base File", lora_base_var, 5)
     makefileentry(model_tab, "Preloaded Story:", "Select Preloaded Story File", preloadstory_var, 7)
@@ -1728,23 +1824,48 @@ def show_gui_msgbox(title,message):
     except Exception as ex2:
         pass
 
+def print_with_time(txt):
+    from datetime import datetime
+    print(f"{datetime.now().strftime('[%H:%M:%S]')} " + txt)
+
+def make_url_request(url, data, method='POST', headers={}):
+    import urllib.request
+    try:
+        request = None
+        if method=='POST':
+            json_payload = json.dumps(data).encode('utf-8')
+            request = urllib.request.Request(url, data=json_payload, headers=headers, method=method)
+            request.add_header('content-type', 'application/json')
+        else:
+            request = urllib.request.Request(url, headers=headers, method=method)
+        response_data = ""
+        with urllib.request.urlopen(request) as response:
+            response_data = response.read().decode('utf-8')
+            json_response = json.loads(response_data)
+            return json_response
+    except urllib.error.HTTPError as e:
+        try:
+            errmsg = e.read().decode('utf-8')
+            print_with_time(f"Error: {e} - {errmsg}")
+        except Exception as e:
+            print_with_time(f"Error: {e}")
+        return None
+    except Exception as e:
+        print_with_time(f"Error: {e} - {response_data}")
+        return None
+
 #A very simple and stripped down embedded horde worker with no dependencies
 def run_horde_worker(args, api_key, worker_name):
-    import urllib.request
     from datetime import datetime
     global friendlymodelname, maxhordectx, maxhordelen, exitcounter, punishcounter, modelbusy, session_starttime
     epurl = f"http://localhost:{args.port}"
     if args.host!="":
         epurl = f"http://{args.host}:{args.port}"
 
-    def print_with_time(txt):
-        print(f"{datetime.now().strftime('[%H:%M:%S]')} " + txt)
-
     def submit_completed_generation(url, jobid, sessionstart, submit_dict):
         global exitcounter, punishcounter, session_kudos_earned, session_jobs, rewardcounter
-        reply = make_url_request(url, submit_dict)
+        reply = make_url_request_horde(url, submit_dict)
         if not reply:
-            exitcounter += 1
             punishcounter += 1
             print_with_time(f"Error, Job submit failed.")
         else:
@@ -1762,60 +1883,46 @@ def run_horde_worker(args, api_key, worker_name):
             rewardcounter += 1
             if rewardcounter > 50:
                 rewardcounter = 0
-                if exitcounter > 5:
+                if exitcounter > 1:
                     exitcounter -= 1
 
-    def make_url_request(url, data, method='POST'):
-        try:
-            request = None
-            headers = {"apikey": api_key,'User-Agent':'KoboldCppEmbeddedWorkerV2','Client-Agent':'KoboldCppEmbedWorker:2'}
-            if method=='POST':
-                json_payload = json.dumps(data).encode('utf-8')
-                request = urllib.request.Request(url, data=json_payload, headers=headers, method=method)
-                request.add_header('content-type', 'application/json')
-            else:
-                request = urllib.request.Request(url, headers=headers, method=method)
-            response_data = ""
-            with urllib.request.urlopen(request) as response:
-                response_data = response.read().decode('utf-8')
-                json_response = json.loads(response_data)
-                return json_response
-        except urllib.error.HTTPError as e:
-            try:
-                errmsg = e.read().decode('utf-8')
-                print_with_time(f"Error: {e} - {errmsg}, Make sure your Horde API key and worker name is valid.")
-            except Exception as e:
-                print_with_time(f"Error: {e}, Make sure your Horde API key and worker name is valid.")
-            return None
-        except Exception as e:
-            print_with_time(f"Error: {e} - {response_data}, Make sure your Horde API key and worker name is valid.")
-            return None
+    def make_url_request_horde(url, data, method='POST'):
+        headers = headers = {"apikey": api_key,'User-Agent':'KoboldCppEmbeddedWorkerV2','Client-Agent':'KoboldCppEmbedWorker:2'}
+        ret = make_url_request(url, data, method, headers)
+        if not ret:
+            print("Make sure your Horde API key and worker name is valid!")
+        return ret
 
     current_id = None
     current_payload = None
     current_generation = None
     session_starttime = datetime.now()
     sleepy_counter = 0 #if this exceeds a value, worker becomes sleepy (slower)
+    exitcounter = 0
     print(f"===\nEmbedded Horde Worker '{worker_name}' Starting...\n(To use your own KAI Bridge/Scribe worker instead, don't set your API key)")
     BRIDGE_AGENT = f"KoboldCppEmbedWorker:2:https://github.com/LostRuins/koboldcpp"
     cluster = "https://horde.koboldai.net"
-    while exitcounter < 35:
+    while exitcounter < 10:
         time.sleep(3)
-        readygo = make_url_request(f'{epurl}/api/v1/info/version', None,'GET')
+        readygo = make_url_request_horde(f'{epurl}/api/v1/info/version', None,'GET')
         if readygo:
             print_with_time(f"Embedded Horde Worker '{worker_name}' is started.")
             break
 
-    while exitcounter < 40:
+    while exitcounter < 10:
         currentjob_attempts = 0
         current_generation = None
 
-        if punishcounter >= 8:
+        if punishcounter >= 5:
             punishcounter = 0
-            penaltymult = (1 + (exitcounter//10))
-            print_with_time(f"Horde Worker Paused for {penaltymult*10} min - Too many errors. It will resume automatically, but you should restart it.")
-            print_with_time(f"Caution: Too many failed jobs may lead to entering maintenance mode.")
-            time.sleep(600 * penaltymult)
+            exitcounter += 1
+            if exitcounter < 10:
+                penaltytime = (2 ** exitcounter)
+                print_with_time(f"Horde Worker Paused for {penaltytime} min - Too many errors. It will resume automatically, but you should restart it.")
+                print_with_time(f"Caution: Too many failed jobs may lead to entering maintenance mode.")
+                time.sleep(60 * penaltytime)
+            else:
+                 print_with_time(f"Horde Worker Exit limit reached, too many errors.")
 
         #first, make sure we are not generating
         if modelbusy.locked():
@@ -1832,9 +1939,8 @@ def run_horde_worker(args, api_key, worker_name):
             "softprompts": [],
             "bridge_agent": BRIDGE_AGENT,
         }
-        pop = make_url_request(f'{cluster}/api/v2/generate/text/pop',gen_dict)
+        pop = make_url_request_horde(f'{cluster}/api/v2/generate/text/pop',gen_dict)
         if not pop:
-            exitcounter += 1
             punishcounter += 1
             print_with_time(f"Failed to fetch job from {cluster}. Waiting 10 seconds...")
             time.sleep(10)
@@ -1854,9 +1960,9 @@ def run_horde_worker(args, api_key, worker_name):
         print_with_time(f"Job received from {cluster} for {current_payload.get('max_length',80)} tokens and {current_payload.get('max_context_length',1024)} max context. Starting generation...")
 
         #do gen
-        while exitcounter < 35:
+        while exitcounter < 10:
             if not modelbusy.locked():
-                current_generation = make_url_request(f'{epurl}/api/v1/generate', current_payload)
+                current_generation = make_url_request_horde(f'{epurl}/api/v1/generate', current_payload)
                 if current_generation:
                     break
                 else:
@@ -2166,15 +2272,21 @@ def main(launch_args,start_server=True):
         basepath = os.path.abspath(os.path.dirname(__file__))
         with open(os.path.join(basepath, "klite.embd"), mode='rb') as f:
             embedded_kailite = f.read()
+            # patch it with extra stuff
+            origStr = "Sorry, Kobold Lite requires Javascript to function."
+            patchedStr = "Sorry, Kobold Lite requires Javascript to function.<br>You can use <a class=\"color_blueurl\" href=\"/noscript\">KoboldCpp NoScript mode</a> instead."
+            embedded_kailite = embedded_kailite.decode("UTF-8","ignore")
+            embedded_kailite = embedded_kailite.replace(origStr, patchedStr)
+            embedded_kailite = embedded_kailite.encode()
             print("Embedded Kobold Lite loaded.")
-    except:
+    except Exception as e:
         print("Could not find Kobold Lite. Embedded Kobold Lite will not be available.")
 
     try:
         basepath = os.path.abspath(os.path.dirname(__file__))
         with open(os.path.join(basepath, "kcpp_docs.embd"), mode='rb') as f:
             embedded_kcpp_docs = f.read()
-    except:
+    except Exception as e:
         print("Could not find Embedded KoboldCpp API docs.")
 
     if args.port_param!=defaultport:
