@@ -2480,37 +2480,8 @@ static void llm_load_hparams(
     ml.get_key  (LLM_KV_ATTENTION_HEAD_COUNT, hparams.n_head);
     ml.get_key  (LLM_KV_BLOCK_COUNT,          hparams.n_layer);
     ml.get_key  (LLM_KV_EXPERT_COUNT,         hparams.n_expert,      false);
+    ml.get_key  (LLM_KV_EXPERT_USED_COUNT,    hparams.n_expert_used, false);
 
-    // Declare the custom expert used count variable and initialize it to 1
-    int CUSTOM_EXPERT_USED_COUNT = 1;
-    std::string filename = "experts.txt";
-
-    // Try to open the file for reading
-    std::ifstream infile(filename);
-
-    if (infile.is_open()) {
-        if (!(infile >> CUSTOM_EXPERT_USED_COUNT)) {
-            // If reading fails, set CUSTOM_EXPERT_USED_COUNT to an error value or handle the error as needed
-            printf("Error reading from file: %s\n", filename.c_str());
-            CUSTOM_EXPERT_USED_COUNT = 1; // Default value or error value
-        }
-        infile.close(); // Close the file after reading or failing to read
-    } else {
-        // The file doesn't exist or couldn't be opened for reading. Try creating it.
-        std::ofstream outfile(filename);
-        if (outfile.is_open()) {
-            outfile << CUSTOM_EXPERT_USED_COUNT; // Write 1 to the file
-            outfile.close(); // Close the file after writing
-        } else {
-            // If the file couldn't be opened for writing, print an error message
-            printf("Error creating file: %s\n", filename.c_str());
-        }
-    }
-
-    // Setter for the number of experts that will be used
-    hparams.n_expert_used = CUSTOM_EXPERT_USED_COUNT;
-
-    // Perform assertions to ensure valid parameters are being used
     GGML_ASSERT(hparams.n_expert <= LLAMA_MAX_EXPERTS);
     GGML_ASSERT(hparams.n_expert_used <= hparams.n_expert);
     if (hparams.n_expert > 0) {
@@ -2518,9 +2489,6 @@ static void llm_load_hparams(
     } else {
         GGML_ASSERT(hparams.n_expert_used == 0);
     }
-
-    // Print out the number of experts that will be used
-    printf("-------------------------------------------------------\nNumber of experts that will be used per token (if MoE): %d\n-------------------------------------------------------\n", hparams.n_expert_used);
 
     // n_head_kv is optional, default to n_head
     hparams.n_head_kv = hparams.n_head;
