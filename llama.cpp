@@ -8099,6 +8099,24 @@ void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * c
         candidates_p->data[i].logit /= dyn_temp;
     }
 
+    // Re-compute softmax probabilities after scaling logits with dynamic temperature
+    double max_l_double = candidates_p->data[0].logit;
+    double cum_sum_double = 0.0;
+    for (size_t i = 0; i < candidates_p->size; ++i) {
+        double p = exp(candidates_p->data[i].logit - max_l_double);
+        candidates_p->data[i].p = p; // Store the scaled probability
+        cum_sum_double += p;
+    }
+    for (size_t i = 0; i < candidates_p->size; ++i) {
+        candidates_p->data[i].p /= cum_sum_double; // Re-normalize the probabilities
+    }
+
+    // Print the updated top 25 probabilities after temperature scaling
+    printf("\nUpdated Top 25 Probabilities After Dynamic Temperature Scaling (in percentages):\n");
+    for (size_t i = 0; i < 25 && i < candidates_p->size; ++i) {
+        printf("Token %zu: %f%%\n", i + 1, candidates_p->data[i].p * 100.0f);
+    }
+
     if (ctx) {
         ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
     }
