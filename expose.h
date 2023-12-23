@@ -27,7 +27,6 @@ struct load_model_inputs
     const int threads;
     const int blasthreads;
     const int max_context_length;
-    const int batch_size;
     const bool low_vram;
     const bool use_mmq;
     const char * executable_path;
@@ -65,6 +64,7 @@ struct generation_inputs
     const float tfs;
     const float rep_pen;
     const int rep_pen_range;
+    const float presence_penalty = 0.0f;
     const int mirostat = 0;
     const float mirostat_eta;
     const float mirostat_tau;
