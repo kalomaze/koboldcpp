@@ -7645,7 +7645,7 @@ void read_or_write_temp(float* minTemp, float* maxTemp, float* ExponentVal) {
     }
 }
 
-void read_or_write_ext(bool &worstToken, float &randomizationFactor, bool &isTrueRNG, unsigned int &rngSeed) {
+void read_or_write_ext(int &removeTopK, float &randomizationFactor, bool &isTrueRNG, unsigned int &rngSeed) {
     std::ifstream infile("ExtStuff.txt");
     if (!infile.good()) {
         // File doesn't exist, create it with default values
@@ -7653,8 +7653,8 @@ void read_or_write_ext(bool &worstToken, float &randomizationFactor, bool &isTru
         if (!outfile) {
             return;
         }
-        outfile << std::boolalpha;
-        outfile << "worstToken = " << worstToken << "\n";
+        // Note that the output format of integers doesn't require std::boolalpha
+        outfile << "removeTopK = " << removeTopK << "\n";
         outfile << "randomizationFactor = " << randomizationFactor << "\n";
         outfile << "isTrueRNG = " << isTrueRNG << "\n";
         outfile << "rngSeed = " << rngSeed << "\n";
@@ -7666,8 +7666,9 @@ void read_or_write_ext(bool &worstToken, float &randomizationFactor, bool &isTru
             std::istringstream iss(line);
             std::string key, equals;
             if ((iss >> key >> equals) && (equals == "=")) {
-                if (key == "worstToken") {
-                    iss >> std::boolalpha >> worstToken; // Modify the referenced variable
+                if (key == "removeTopK") {
+                    // Since removeTopK is now an integer, we read into it directly without std::boolalpha
+                    iss >> removeTopK; // Modify the referenced variable
                 } else if (key == "randomizationFactor") {
                     iss >> randomizationFactor; // Read the randomizationFactor
                 } else if (key == "isTrueRNG") {
@@ -7796,17 +7797,36 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
     llama_sample_softmax(ctx, candidates);
 
     // Variables to hold the external values
-    bool worstToken = false; // unused from earlier experiment, disregard
-    float randomizationFactor = 0.1; // Default value of the randomization factor
+    int removeTopK = 64000;
+    float randomizationFactor = 0.0; // Default value of the randomization factor
     bool isTrueRNG = true; // Default value for RNG type, set to true for true randomness
     unsigned int rngSeed = 123456789; // Default seed value for deterministic RNG
+
+    // Read or write the external values
+    read_or_write_ext(removeTopK, randomizationFactor, isTrueRNG, rngSeed);
+
+    printf("Top 15 tokens before removeTopK or Min P:\n");
+    for (size_t i = 0; i < candidates->size && i < 15; ++i) {
+        printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);
+    }
+
+    // Calculate the weighted average.
+    double weightedSum = 0.0;
+    double sumOfWeights = 0.0;
+    for (size_t i = 0; i < candidates->size; ++i) {
+        double weight = candidates->data[i].p; // Using the probability itself as the weight.
+        weightedSum += weight * candidates->data[i].p; // Weight times probability.
+        sumOfWeights += weight; // Sum of weights (which are the probabilities).
+    }
+
+    double weightedAverage = (sumOfWeights > 0) ? (weightedSum / sumOfWeights) : 0.0;
+
+    // Print the weighted average.
+    printf("Weighted average probability: %.6f%%\n", weightedAverage * 100);
 
     // Check if the randomizationFactor value is above 0 and apply Gaussian noise if so
     if (randomizationFactor > 0.0) {
         printf("Override: Applying Gaussian noise to logits due to the randomizationFactor being greater than 0.0\n");
-
-        // Read or write the external values
-        read_or_write_ext(worstToken, randomizationFactor, isTrueRNG, rngSeed);
         
         // Create a random number generator
         std::default_random_engine generator;
@@ -7854,20 +7874,7 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
     // Store original top probability
     float original_top_prob = candidates->data[0].p;
 
-    // Print the original top probability
-    printf("Original top probability: %.6f%%\n", original_top_prob * 100);  // Multiplying by 100 to convert to percentage
-
-    // Print the top tokens before filtering
-    printf("Top 15 tokens before MIN P:\n");
-    for (size_t i = 0; i < candidates->size && i < 15; ++i) {  // Adjust 10 to however many top tokens you want to display
-        printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);  // Multiplying by 100 to convert to percentage
-    }
-
     float multiplication_factor = candidates->data[0].p;  // Assuming the probabilities are sorted
-    printf("Highest scoring token probability (multiplication factor): %f\n", multiplication_factor);
-
-    printf("Min P base value: %f\n", p);
-    printf("Modified Min P for this token: %f\n", p * multiplication_factor);
 
     float scale = candidates->data[0].p; // scale by max prob
     size_t i = 1; // first token always matches
@@ -7882,10 +7889,41 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
     candidates->size = i;
     llama_sample_softmax(ctx, candidates);
 
-    // Print the top tokens before filtering
-    printf("Remaining (top 15) tokens after MIN P:\n");
-    for (size_t i = 0; i < candidates->size && i < 15; ++i) {  // Adjust 10 to however many top tokens you want to display
-        printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);  // Multiplying by 100 to convert to percentage
+    printf("Top tokens after Min P:\n");
+    for (size_t i = 0; i < candidates->size && i < 15; ++i) {
+        printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);
+    }
+
+    double reweightedAverage = (sumOfWeights > 0) ? (weightedSum / sumOfWeights) : 0.0;
+
+    // Print the weighted average.
+    printf("Weighted average probability after: %.6f%%\n", reweightedAverage * 100);
+
+    // Ensure there's no removal if removeTopK is larger than the number of candidates
+    if (removeTopK == 0) {
+        return; // No need to proceed further as we won't be removing any tokens
+    }
+
+    printf("Starting removeTopK function...\n");
+
+    // Ensure removeTopK is not larger than the number of available candidates minus one
+    if (removeTopK >= candidates->size && candidates->size > 0) {
+        removeTopK = candidates->size - 1;
+    }
+
+    // Calculate the new size after removing the top K tokens
+    size_t newSize = candidates->size - removeTopK;
+
+    newSize = std::max(newSize, min_keep); // Ensure we don't go below the min_keep threshold
+
+    // Slide the remaining elements to the start of the arrays
+    std::move(candidates->data + removeTopK, candidates->data + candidates->size, candidates->data);
+    candidates->size = newSize;
+    printf("Removed top %zu tokens. New size: %zu\n", removeTopK, candidates->size);
+
+    printf("Top 5 tokens after removeTopK:\n");
+    for (size_t i = 0; i < candidates->size && i < 5; ++i) {
+        printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);
     }
 
     if (ctx) {
@@ -7962,6 +8000,12 @@ void llama_sample_typical(struct llama_context * ctx, llama_token_data_array * c
     // Compute the softmax of logits and calculate entropy
     llama_sample_softmax(nullptr, candidates);
 
+    // Print the top 25 logits probabilities
+    printf("\nTop 25 Token Probabilities (in percentages):\n");
+    for (size_t i = 0; i < 25 && i < candidates->size; ++i) {
+        printf("Token %zu: %f%%\n", i+1, candidates->data[i].p * 100.0f);
+    }
+
     const int64_t t_start_sample_us = ggml_time_us();
 
     float entropy = 0.0f;
@@ -8013,6 +8057,12 @@ void llama_sample_typical(struct llama_context * ctx, llama_token_data_array * c
     std::copy(new_candidates.begin(), new_candidates.end(), candidates->data);
     candidates->size = new_candidates.size();
     candidates->sorted = false;
+
+    // Print the top 25 logits probabilities
+    printf("\nTop 25 Token Probabilities (in percentages):\n");
+    for (size_t i = 0; i < 25 && i < candidates->size; ++i) {
+        printf("Token %zu: %f%%\n", i+1, candidates->data[i].p * 100.0f);
+    }
 
     if (ctx) {
         ctx->t_sample_us += ggml_time_us() - t_start_sample_us;

@@ -1586,10 +1586,12 @@ generation_outputs gpttype_generate(const generation_inputs inputs, generation_o
                             file_format == FileFormat::GPTJ_2 ||
                             file_format == FileFormat::RWKV_1 ||
                             file_format==FileFormat::RWKV_2);
-    bool blasmode = (approved_format && embd_inp.size() >= 32 && ggml_cpu_has_blas() && blasbatchsize!=-1);
+    bool blasmode = (approved_format && embd_inp.size() >= 8 && ggml_cpu_has_blas() && blasbatchsize!=-1);
     // bool blasmode = false;
     int original_batch = params.n_batch;
     int original_threads = params.n_threads;
+    int input_consumed = 0;    
+
     if (blasmode)
     {
         //for non llama, limit to 256
@@ -1600,6 +1602,7 @@ generation_outputs gpttype_generate(const generation_inputs inputs, generation_o
         }
 
         params.n_batch = bbs; //received reports of 1024 and above crashing on some models
+
         if(!ggml_cpu_has_gpublas())
         {
             //does not limit here for gguf anymore. this is kept for older models.
@@ -1618,7 +1621,6 @@ generation_outputs gpttype_generate(const generation_inputs inputs, generation_o
 
     remaining_tokens = params.n_predict;
     stopper_unused_tokens = 0;
-    int input_consumed = 0;
     std::mt19937 rng(params.seed);
 
     //prepare sampler order
@@ -1706,11 +1708,6 @@ generation_outputs gpttype_generate(const generation_inputs inputs, generation_o
         printf("\nBanned a total of %zu tokens.\n",banned_token_ids.size());
     }
 
-    if(allow_regular_prints)
-    {
-        printf("\n");
-    }
-
     if (debugmode==1)
     {
         std::string outstr = "";
@@ -1721,21 +1718,16 @@ generation_outputs gpttype_generate(const generation_inputs inputs, generation_o
         printf("%s\n\n", RemoveBell(outstr).c_str());
     }
 
+    auto last_update_time = std::chrono::steady_clock::now();
+
     while (remaining_tokens > 0)
     {
         gpt_vocab::id id = 0;
         // predict
         unsigned int embdsize = embd.size();
-        //print progress
-        if (!startedsampling && allow_regular_prints)
-        {
-            printf("\rProcessing Prompt%s (%d / %zu tokens)", (blasmode ? " [BLAS]" : ""), input_consumed, embd_inp.size());
-        }
-        fflush(stdout);
 
         if (embdsize > 0)
         {
-
             bool evalres = false;
 
             if (file_format == FileFormat::GGML || file_format == FileFormat::GGHF || file_format == FileFormat::GGJT || file_format == FileFormat::GGJT_2)
@@ -1846,10 +1838,6 @@ generation_outputs gpttype_generate(const generation_inputs inputs, generation_o
                 params.n_threads = original_threads;
                 time1 = timer_check();
                 timer_start();
-                if(allow_regular_prints)
-                {
-                    printf("\n");
-                }
             }
 
             unsigned int eosID = GetEosID(file_format, n_vocab);
@@ -1920,11 +1908,7 @@ generation_outputs gpttype_generate(const generation_inputs inputs, generation_o
                 concat_output += tokenizedstr;
                 concat_output_mtx.unlock();
             }
-
-            if (startedsampling && allow_regular_prints)
-            {
-                printf("\rGenerating (%d / %d tokens)", (params.n_predict - remaining_tokens), params.n_predict);
-            }
+                
             if(debugmode==1 && top_picks.size()>0)
             {
                 printf(" [");
