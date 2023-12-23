@@ -124,3 +124,5 @@ conda/
 
 # Jetbrains idea folder
 .idea/
+*.dll
+Launch_Kobold.bat
