@@ -8797,11 +8797,8 @@ static void ggml_cuda_mul_mat_id(const ggml_tensor * src0, const ggml_tensor * s
     ggml_tensor src1_row = *src1;
     ggml_tensor dst_row = *dst;
 
-    src1_row.backend = GGML_BACKEND_GPU;
-    dst_row.backend  = GGML_BACKEND_GPU;
-
-    src1_row.extra = &src1_row_extra;
-    dst_row.extra = &dst_row_extra;
+    ggml_backend_type src1_original_backend = src1_row.backend;
+    ggml_backend_type  dst_original_backend =  dst_row.backend;
 
     char * src1_original = src1->backend == GGML_BACKEND_CPU ?
         (char *) src1->data : (char *) src1_extra->data_device[g_main_device];
@@ -8901,7 +8898,15 @@ static void ggml_cuda_mul_mat_id(const ggml_tensor * src0, const ggml_tensor * s
 
     if (dst->backend == GGML_BACKEND_CPU) {
         CUDA_CHECK(cudaStreamSynchronize(stream));
+
     }
+
+    if (dst_original_backend == GGML_BACKEND_CPU) {
+        CUDA_CHECK(cudaStreamSynchronize(stream));
+    }
+
+    src1_row.backend = src1_original_backend;
+    dst_row.backend  =  dst_original_backend;
 }
 
 static void ggml_cuda_scale(const ggml_tensor * src0, const ggml_tensor * src1, ggml_tensor * dst) {
