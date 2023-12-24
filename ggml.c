@@ -12544,6 +12544,17 @@ static void ggml_compute_forward_argsort(
         case GGML_TYPE_F32:
             {
                 ggml_compute_forward_argsort_f32(params, src0, dst);
+
+                // TODO: for cpu only or partial offload, the counters state would need to be
+                // moved out of ggml-cuda.cu and maybe into here, and then this would need to
+                // perform a similar update to what the CUDA code does.
+                // Additionally the state reset and print functions are currently only being
+                // called from CUBLAS ifdefs, they'd need to be moved outside of those.
+
+                // for (int i = 0; i < ggml_nelements(dst); i++) {
+                //     printf("%d ", ggml_get_i32_1d(dst, i));
+                // }
+                // printf("\n");
             } break;
         default:
             {

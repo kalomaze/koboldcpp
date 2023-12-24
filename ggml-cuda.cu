@@ -5119,7 +5119,6 @@ static inline __device__ void swap(T & a, T & b) {
 
 template<ggml_sort_order order>
 static __global__ void k_argsort_f32_i32(const float * x, int * dst, const int ncols) {
-    // bitonic sort
     int col = threadIdx.x;
     int row = blockIdx.y;
 
@@ -5128,30 +5127,31 @@ static __global__ void k_argsort_f32_i32(const float * x, int * dst, const int n
     const float * x_row = x + row * ncols;
     int * dst_row = dst + row * ncols;
 
-    // initialize indices
-    if (col < ncols) {
-        dst_row[col] = col;
+    // Initialize indices
+    for (int i = 0; i < ncols; i++) {
+        dst_row[i] = i;
     }
-    __syncthreads();
+    __syncthreads(); // Ensure all indices are initialized
 
-    for (int k = 2; k <= ncols; k *= 2) {
-        for (int j = k / 2; j > 0; j /= 2) {
-            int ixj = col ^ j;
-            if (ixj > col) {
-                if ((col & k) == 0) {
-                    if (order == GGML_SORT_ASC ? x_row[dst_row[col]] > x_row[dst_row[ixj]] : x_row[dst_row[col]] < x_row[dst_row[ixj]]) {
-                        swap(dst_row[col], dst_row[ixj]);
-                    }
-                } else {
-                    if (order == GGML_SORT_ASC ? x_row[dst_row[col]] < x_row[dst_row[ixj]] : x_row[dst_row[col]] > x_row[dst_row[ixj]]) {
-                        swap(dst_row[col], dst_row[ixj]);
-                    }
-                }
+    // Insertion sort
+    for (int i = 1; i < ncols; i++) {
+        int j = i;
+        while (j > 0) {
+            bool condition = order == GGML_SORT_ASC ?
+                             x_row[dst_row[j-1]] > x_row[dst_row[j]] :
+                             x_row[dst_row[j-1]] < x_row[dst_row[j]];
+
+            if (condition) {
+                // Swap
+                swap(dst_row[j], dst_row[j - 1]);
+            } else {
+                break;
             }
-            __syncthreads();
+            j--;
         }
     }
 }
+
 
 static __global__ void diag_mask_inf_f32(const float * x, float * dst, const int ncols, const int rows_per_channel, const int n_past) {
     const int col = blockDim.y*blockIdx.y + threadIdx.y;
@@ -6488,9 +6488,6 @@ static void sum_rows_f32_cuda(const float * x, float * dst, const int ncols, con
 }
 
 static void argsort_f32_i32_cuda(const float * x, int * dst, const int ncols, const int nrows, ggml_sort_order order, cudaStream_t stream) {
-    // bitonic sort requires ncols to be power of 2
-    GGML_ASSERT((ncols & (ncols - 1)) == 0);
-
     const dim3 block_dims(ncols, 1, 1);
     const dim3 block_nums(1, nrows, 1);
     if (order == GGML_SORT_ASC) {
@@ -7631,6 +7628,36 @@ inline void ggml_cuda_op_sum_rows(
     (void) src1_dd;
 }
 
+// const size_t TOTAL_EXPERTS = 8;
+static uint * expert_counter = nullptr;
+static size_t expert_count;
+static uint experts_per_tok = 0;
+
+void reset_expert_counter(uint experts_per_tok, size_t expert_count) {
+    if (expert_counter != nullptr) {
+        free(expert_counter);
+    }
+    expert_counter = (uint *) calloc(expert_count, sizeof(uint));
+    ::experts_per_tok = experts_per_tok;
+    ::expert_count = expert_count;
+}
+
+void print_expert_counter() {
+    printf("\n");
+    uint total = 0;
+    for (int i = 0; i < expert_count; i++) {
+        printf("%u:%6u  ", i,  expert_counter[i]);
+        total += expert_counter[i];
+    }
+
+    printf("\n");
+    for (int i = 0; i < expert_count; i++) {
+        printf("%u:%6.2f%% ", i, 100.0f * expert_counter[i] / total);
+    }
+
+    printf("\n");
+}
+
 inline void ggml_cuda_op_argsort(
     const ggml_tensor * src0, const ggml_tensor * src1, ggml_tensor * dst,
     const float * src0_dd, const float * src1_dd, float * dst_dd, const cudaStream_t & main_stream) {
@@ -7644,6 +7671,31 @@ inline void ggml_cuda_op_argsort(
     enum ggml_sort_order order = (enum ggml_sort_order) dst->op_params[0];
 
     argsort_f32_i32_cuda(src0_dd, (int *)dst_dd, ncols, nrows, order, main_stream);
+
+    // printf ncols, nrows
+    // printf("\nncols: %d, nrows: %d", ncols, nrows);
+
+    if (expert_counter != nullptr) {
+        int* dst_host = (int *) malloc(ncols * nrows * sizeof(int));
+        CUDA_CHECK(cudaDeviceSynchronize());
+        CUDA_CHECK(cudaMemcpy(dst_host, dst_dd, ncols * nrows * sizeof(int), cudaMemcpyDeviceToHost));
+        // printf("%s: \n", ggml_get_name(dst));
+
+        // row major order
+        for (int i = 0; i < nrows; i++) {
+            for (int j = 0; j < ncols; j++) {
+                int val = dst_host[i * ncols + j];
+                if (j < experts_per_tok) {
+                    GGML_ASSERT(val < expert_count);
+                    expert_counter[val]++;
+                } else {
+                    break;
+                }
+                // printf("%d ", val);
+            }
+            // printf("\n");
+        }
+    }
 
     (void) src1;
     (void) dst;
@@ -9796,11 +9848,14 @@ static void ggml_backend_cuda_graph_compute(ggml_backend_t backend, ggml_cgraph 
             }
         }
 
+        // printf("\n");
         bool ok = ggml_cuda_compute_forward(&params, node);
+        // printf("\n");
         if (!ok) {
             fprintf(stderr, "%s: error: op not supported %s (%s)\n", __func__, node->name, ggml_op_name(node->op));
         }
         GGML_ASSERT(ok);
+
 
 #if 0
         if (node->type == GGML_TYPE_F32) {

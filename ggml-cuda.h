@@ -59,6 +59,10 @@ GGML_API ggml_backend_buffer_type_t ggml_backend_cuda_buffer_type(int device);
 // pinned host buffer for use with CPU backend for faster copies between CPU and GPU
 GGML_API ggml_backend_buffer_type_t ggml_backend_cuda_host_buffer_type(void);
 
+void reset_expert_counter(uint experts_per_tok, size_t expert_count);
+
+void print_expert_counter();
+
 #ifdef  __cplusplus
 }
 #endif

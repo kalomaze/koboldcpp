@@ -102,6 +102,9 @@ static std::mutex concat_output_mtx;
 static std::string concat_output = "";
 static std::string concat_output_reader_copy = "";
 
+static uint32_t xx_n_expert = 0;
+static uint32_t xx_n_expert_used = 0;
+
 const int extra_context_handle_fragmentation = 80;
 
 inline bool IsNanCheck(float f)
@@ -979,6 +982,9 @@ ModelLoadResult gpttype_load_model(const load_model_inputs inputs, FileFormat in
             }
         }
 
+        xx_n_expert = llamamodel->hparams.n_expert;
+        xx_n_expert_used = llamamodel->hparams.n_expert_used;
+
         llama_ctx_v4 = llama_new_context_with_model(llamamodel, llama_ctx_params);
 
         if (llama_ctx_v4 == NULL)
@@ -1729,6 +1735,12 @@ generation_outputs gpttype_generate(const generation_inputs inputs, generation_o
         printf("%s\n\n", RemoveBell(outstr).c_str());
     }
 
+#ifdef GGML_USE_CUBLAS
+    if (xx_n_expert > 0) {
+        reset_expert_counter(xx_n_expert_used, xx_n_expert);
+    }
+#endif
+
     while (remaining_tokens > 0)
     {
         gpt_vocab::id id = 0;
@@ -1850,6 +1862,12 @@ generation_outputs gpttype_generate(const generation_inputs inputs, generation_o
 
             if (!startedsampling)
             {
+                #ifdef GGML_USE_CUBLAS
+                    if (xx_n_expert > 0) {
+                        print_expert_counter();
+                        reset_expert_counter(xx_n_expert_used, xx_n_expert);
+                    }
+                #endif
                 startedsampling = true;
                 params.n_batch = original_batch;
                 params.n_threads = original_threads;
@@ -2012,6 +2030,12 @@ generation_outputs gpttype_generate(const generation_inputs inputs, generation_o
     last_token_count = realnpredict;
     total_gens += 1;
     snprintf(output.text, sizeof(output.text), "%s", concat_output.c_str());
+
+#ifdef GGML_USE_CUBLAS
+    if (xx_n_expert > 0) {
+        print_expert_counter();
+    }
+#endif
 
     return output;
 }
