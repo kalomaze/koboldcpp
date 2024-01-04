@@ -2630,7 +2630,7 @@ static void llm_load_hparams(
     ml.get_key  (LLM_KV_ATTENTION_HEAD_COUNT, hparams.n_head);
     ml.get_key  (LLM_KV_BLOCK_COUNT,          hparams.n_layer);
     ml.get_key  (LLM_KV_EXPERT_COUNT,         hparams.n_expert,      false);
-    ml.get_key (LLM_KV_EXPERT_USED_COUNT, hparams.n_expert_used, false);
+    ml.get_key  (LLM_KV_EXPERT_USED_COUNT,    hparams.n_expert_used, false);
 
     GGML_ASSERT(hparams.n_expert <= LLAMA_MAX_EXPERTS);
     GGML_ASSERT(hparams.n_expert_used <= hparams.n_expert);
