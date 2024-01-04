@@ -25,6 +25,7 @@ typedef struct llama_sampling_params {
     int32_t     mirostat              = 0;        // 0 = disabled, 1 = mirostat, 2 = mirostat 2.0
     float       mirostat_tau          = 5.00f;    // target entropy
     float       mirostat_eta          = 0.10f;    // learning rate
+    bool        dynatemp              = false;    // dynamic temperature
     float       min_temp              = 0.00f; // minimum temperature
     float       max_temp              = 2.00f; // maximum temperature
     bool        penalize_nl           = true;     // consider newlines as a repeatable token

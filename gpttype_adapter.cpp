@@ -480,7 +480,7 @@ void sample_grammar(FileFormat file_format, int32_t n_vocab, llama_token_data_ar
 }
 
 int SampleLogits(const float * logits, int n_ctx, int n_vocab, int rep_pen_range, float rep_pen, float presence_penalty, float top_k, float top_a, float top_p, float min_p, float typical_p, float tfs, float temp, std::mt19937 & rng,
-int mirostat, float mirostat_tau, float mirostat_eta, const std::vector<samplers> & sampler_order, llama_grammar * grammar, float min_temp, float max_temp)
+int mirostat, float mirostat_tau, float mirostat_eta, const std::vector<samplers> & sampler_order, llama_grammar * grammar, bool dynatemp, float min_temp, float max_temp)
 {
     int id = 0;
     std::vector<llama_token_data> candidates;
@@ -533,9 +533,12 @@ int mirostat, float mirostat_tau, float mirostat_eta, const std::vector<samplers
                     llama_sample_typical(nullptr, &candidates_p, typical_p,1);
                     break;
                 case KCPP_SAMPLER_TEMP:
-                    if (temp > 2.0) {
+                    if (dynatemp)
+                    {
                         llama_sample_entropy(nullptr, &candidates_p, temp, min_temp, max_temp);
-                    } else {
+                    }
+                    else
+                    {
                         sample_temperature(&candidates_p, temp);
                     }
                     break;
@@ -1457,6 +1460,7 @@ generation_outputs gpttype_generate(const generation_inputs inputs, generation_o
     params.mirostat = inputs.mirostat;
     params.mirostat_eta = inputs.mirostat_eta;
     params.mirostat_tau = inputs.mirostat_tau;
+    params.dynatemp = inputs.dynatemp;
     params.min_temp = inputs.min_temp;
     params.max_temp = inputs.max_temp;
     params.n_ctx = inputs.max_context_length;
@@ -1908,7 +1912,7 @@ generation_outputs gpttype_generate(const generation_inputs inputs, generation_o
 
             id = SampleLogits(logitsPtr, nctx, n_vocab, last_n_size, repeat_penalty, presence_penalty,
             top_k, top_a, top_p, min_p, typical_p, tfs_z, temp, rng,
-            params.mirostat, params.mirostat_tau, params.mirostat_eta, sampler_order, grammar, params.min_temp, params.max_temp);
+            params.mirostat, params.mirostat_tau, params.mirostat_eta, sampler_order, grammar, params.dynatemp, params.min_temp, params.max_temp);
 
             if (grammar != nullptr) {
                 grammar_accept_token(file_format, n_vocab, grammar, id);

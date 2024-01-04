@@ -7461,8 +7461,8 @@ Current version: 101
 		localsettings.miro_type = cleannum(localsettings.miro_type, 0, 2);
 		localsettings.miro_tau = cleannum(localsettings.miro_tau, 0, 30);
 		localsettings.miro_eta = cleannum(localsettings.miro_eta, 0, 10);
-        localsettings.min_temp = cleannum(localsettings.min_temp, 0, 2);
-		localsettings.max_temp = cleannum(localsettings.max_temp, 1.95, 2);
+        localsettings.min_temp = cleannum(localsettings.min_temp, 0.01, 5);
+		localsettings.max_temp = cleannum(localsettings.max_temp, 0.01, 5);
 		localsettings.sampler_seed = cleannum(localsettings.sampler_seed, -1, 999999);
 		toggle_invert_colors();
 
@@ -7717,6 +7717,7 @@ Current version: 101
 				"tfs": localsettings.tfs_s,
 				"rep_pen_range": localsettings.rep_pen_range,
 				"rep_pen_slope": localsettings.rep_pen_slope,
+                "dynatemp": localsettings.dynatemp,
                 "min_temp": localsettings.min_temp,
 				"max_temp": localsettings.max_temp,
 				"sampler_order": localsettings.sampler_order
@@ -8577,6 +8578,7 @@ Current version: 101
 					"tfs": localsettings.tfs_s,
 					"rep_pen_range": localsettings.rep_pen_range,
 					"rep_pen_slope": localsettings.rep_pen_slope,
+                    "dynatemp": localsettings.dynatemp,
                     "min_temp": localsettings.min_temp,
 					"max_temp": localsettings.max_temp,
 					"sampler_order": localsettings.sampler_order

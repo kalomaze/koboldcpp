@@ -82,6 +82,7 @@ struct gpt_params {
     float   mirostat_eta      = 0.10f; // learning rate
 
     // DynaTemp!
+    bool    dynatemp           = false; // enable DynaTemp
     float   min_temp           = 0.00f; // minimum temperature
     float   max_temp           = 2.00f; // maximum temperature
 
