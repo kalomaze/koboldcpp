@@ -80,7 +80,7 @@ class generation_inputs(ctypes.Structure):
                 ("quiet", ctypes.c_bool),
                 ("dynatemp", ctypes.c_bool),
                 ("min_temp", ctypes.c_float),
-                ("max_temp", ctypes.c_float)]
+                ("max_temp", ctypes.c_float),
                 ("logit_biases", logit_bias * logit_bias_max)]
 
 class generation_outputs(ctypes.Structure):
@@ -552,7 +552,7 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
                 genkey=genparams.get('genkey', ''),
                 trimstop=genparams.get('trim_stop', False),
                 quiet=is_quiet,
-                logit_biases=genparams.get('logit_bias', {}))
+                logit_biases=genparams.get('logit_bias', {}),
                 dynatemp=genparams.get('dynatemp', False),
                 min_temp=genparams.get('min_temp', 0.01),
                 max_temp=genparams.get('max_temp', 0.01))
