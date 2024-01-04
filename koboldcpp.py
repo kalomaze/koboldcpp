@@ -312,7 +312,6 @@ def load_model(model_filename):
     ret = handle.load_model(inputs)
     return ret
 
-
 def generate(prompt, memory="", max_length=32, max_context_length=512, temperature=0.7, top_k=100, top_a=0.0, top_p=0.92, min_p=0.0, typical_p=1.0, tfs=1.0, rep_pen=1.1, rep_pen_range=128, presence_penalty=0.0, mirostat=0, mirostat_tau=5.0, mirostat_eta=0.1, sampler_order=[6,0,1,3,4,2,5], seed=-1, stop_sequence=[], use_default_badwordsids=False, stream_sse=False, grammar='', grammar_retain_state=False, genkey='', trimstop=False, quiet=False, dynatemp=False, min_temp=0.0, max_temp=2.0, logit_biases={}):
     global maxctx, args, currentusergenkey, totalgens
     inputs = generation_inputs()
