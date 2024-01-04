@@ -139,6 +139,21 @@
                            "description": "If true, prevents the EOS token from being generated (Ban EOS). For unbantokens, set this to false.",
                            "type": "boolean"
                         },
+                        "dynatemp": {
+                           "default": false,
+                           "description": "If true, uses dynamic temperature. If false, uses static temperature.",
+                           "type": "boolean"
+                        },
+                        "min_temp": {
+                           "description": "Dynatemp Minimum temperature value.",
+                           "exclusiveMinimum": 0,
+                           "type": "number"
+                        },
+                        "max_temp": {
+                           "description": "Maximum temperature value.",
+                           "exclusiveMinimum": 0,
+                           "type": "number"
+                        },
                         "mirostat": {
                            "description": "KoboldCpp ONLY. Sets the mirostat mode, 0=disabled, 1=mirostat_v1, 2=mirostat_v2",
                            "minimum": 0,

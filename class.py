@@ -304,7 +304,6 @@ class model_backend(InferenceModel):
         self.input_queue.put({'command': 'generate', 'data': [(decoded_prompt,max_new,utils.koboldai_vars.max_length,
                                 gen_settings.temp,int(gen_settings.top_k),gen_settings.top_a,gen_settings.top_p,
                                 gen_settings.typical,gen_settings.tfs,gen_settings.rep_pen,gen_settings.rep_pen_range),
-                                dynatemp = gen_settings.dynatemp, min_temp = gen_settings.min_temp, max_temp = gen_settings.max_temp,
                                {"sampler_order": gen_settings.sampler_order, "use_default_badwordsids": utils.koboldai_vars.use_default_badwordsids}
                                 ]})
 

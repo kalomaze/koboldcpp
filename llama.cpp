@@ -7887,13 +7887,6 @@ void llama_sample_top_p(struct llama_context * ctx, llama_token_data_array * can
 
     llama_sample_softmax(ctx, candidates);
 
-    // Print the top tokens before filtering
-    printf("Top 10 tokens before TOP P:\n");
-    for (size_t i = 0; i < candidates->size && i < 10; ++i) {  // Adjust 10 to however many top tokens you want to display
-        printf("Token %zu (ID: %d): %.6f%%\n", i + 1, candidates->data[i].id, candidates->data[i].p * 100);
-        printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);  // Multiplying by 100 to convert to percentage
-    }
-
     const int64_t t_start_sample_us = ggml_time_us();
 
     // Compute the cumulative probabilities
@@ -7911,20 +7904,8 @@ void llama_sample_top_p(struct llama_context * ctx, llama_token_data_array * can
         }
     }
 
-    // Print the top tokens before filtering
-    printf("TOP 10 BEFORE RESIZE (TOP P):\n");
-    for (size_t i = 0; i < candidates->size && i < 10; ++i) {  // Adjust 10 to however many top tokens you want to display
-        printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);  // Multiplying by 100 to convert to percentage
-    }
-
     // Resize the output vector to keep only the top-p tokens
     candidates->size = last_idx;
-
-    // Print the top tokens before filtering
-    printf("Top 10 tokens AFTER TOP P:\n");
-    for (size_t i = 0; i < candidates->size && i < 10; ++i) {  // Adjust 10 to however many top tokens you want to display
-        printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);  // Multiplying by 100 to convert to percentage
-    }
 
     if (ctx) {
         ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
