@@ -81,7 +81,11 @@ struct generation_inputs
     const char * grammar;
     const bool grammar_retain_state;
     const bool quiet = false;
+    const bool dynatemp = false;
+    const float min_temp;
+    const float max_temp;
     const logit_bias logit_biases[logit_bias_max];
+
 };
 struct generation_outputs
 {

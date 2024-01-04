@@ -80,6 +80,12 @@ struct gpt_params {
     int32_t mirostat          = 0;     // 0 = disabled, 1 = mirostat, 2 = mirostat 2.0
     float   mirostat_tau      = 5.00f; // target entropy
     float   mirostat_eta      = 0.10f; // learning rate
+
+    // DynaTemp!
+    bool    dynatemp           = false; // enable DynaTemp
+    float   min_temp           = 0.00f; // minimum temperature
+    float   max_temp           = 2.00f; // maximum temperature
+
     // // sampling parameters
     struct llama_sampling_params sparams;
 
