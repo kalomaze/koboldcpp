@@ -332,7 +332,6 @@ def generate(prompt, memory="", max_length=32, max_context_length=512, temperatu
     inputs.presence_penalty = presence_penalty
     inputs.stream_sse = stream_sse
     inputs.quiet = quiet
-    print(f"Koboldcpp.py Dynatemp is {dynatemp}")
     inputs.dynatemp = dynatemp
     inputs.min_temp = min_temp
     inputs.max_temp = max_temp
