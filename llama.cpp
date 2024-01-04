@@ -8254,45 +8254,6 @@ void llama_sample_hhi(struct llama_context * ctx, llama_token_data_array * candi
     }
 }
 
-void llama_sample_greedy_dynamic_temp(struct llama_context* ctx, llama_token_data_array* candidates_p, float temp, float min_temp = 0.0f, float max_temp = 2.0f, float k = 1.0f, float sigmoid_center_point = 0.75f) {
-    const int64_t t_start_sample_us = ggml_time_us();
-
-    llama_sample_softmax(ctx, candidates_p);
-
-    // Calculate softmax for the largest logit
-    float max_l = candidates_p->data[0].logit;
-    float sum_exp = 0.0f;
-    for (size_t i = 0; i < candidates_p->size; ++i) {
-        sum_exp += expf(candidates_p->data[i].logit - max_l);
-    }
-
-    // Since expf(0) = 1, we can directly use 1.0f for the numerator
-    float prob_max_token_before_temp = 1.0f / sum_exp;
-
-    // Print out the probability of the token with the highest logit before temperature scaling [TEMPORARY]
-    printf("\nProbability of the most likely token before temperature scaling: %f\n", prob_max_token_before_temp);
-
-    // Dynamic temperature adjustment based on top token probability
-
-    float dynamic_temp = max_temp - (max_temp - min_temp) / (1 + expf(-k * (prob_max_token_before_temp - sigmoid_center_point)));
-
-    // Print out the dynamically calculated temperature
-    printf("Dynamically calculated temperature for this token: %f\n", dynamic_temp);
-    printf("The minTemp: %f\n", min_temp);
-    printf("The maxTemp: %f\n", max_temp);
-    printf("The k multiplier: %f\n", k);
-    printf("The sigmoidCenterPoint: %f\n", sigmoid_center_point);
-
-    // Apply the dynamically calculated temperature scaling
-    for (size_t i = 0; i < candidates_p->size; ++i) {
-        candidates_p->data[i].logit /= dynamic_temp;
-    }
-
-    if (ctx) {
-        ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
-    }
-}
-
 void llama_sample_temp(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
     const int64_t t_start_sample_us = ggml_time_us();
 
@@ -8306,16 +8267,7 @@ void llama_sample_temp(struct llama_context * ctx, llama_token_data_array * cand
 }
 
 void llama_sample_temperature(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
-    if (temp >= 3.89 && temp <= 3.91) {
-        llama_sample_greedy_dynamic_temp(ctx, candidates_p, temp);
-    } else if (temp >= 1.83 && temp <= 1.85) {
-        llama_sample_entropy(ctx, candidates_p, temp);
-    } else if (temp >= 2.19 && temp <= 2.21) {
-        llama_sample_hhi(ctx, candidates_p, temp);
-    } else {
-        // Default sampling method
-        llama_sample_temp(ctx, candidates_p, temp);
-    }
+    llama_sample_temp(ctx, candidates_p, temp);
 }
 
 void llama_sample_grammar(struct llama_context * ctx, llama_token_data_array * candidates, const struct llama_grammar * grammar) {
