@@ -3372,6 +3372,11 @@ Current version: 101
 		miro_tau: 5.0,
 		miro_eta: 0.1,
 		sampler_order: [6, 0, 1, 3, 4, 2, 5],
+
+        // DynaTemp
+        dynatemp: false,
+		min_temp: 0,
+		max_temp: 2,
 	};
 
 	var defaultsettings = JSON.parse(JSON.stringify(localsettings));
@@ -7150,6 +7155,9 @@ Current version: 101
 		document.getElementById("miro_type").value = localsettings.miro_type;
 		document.getElementById("miro_tau").value = localsettings.miro_tau;
 		document.getElementById("miro_eta").value = localsettings.miro_eta;
+        document.getElementByID("dynatemp").checked = localsettings.dynatemp;
+        document.getElementById("min_temp").value = localsettings.min_temp;
+		document.getElementById("max_temp").value = localsettings.max_temp;
 		if(is_using_kcpp_with_mirostat())
 		{
 			document.getElementById("mirosupporteddiv").classList.remove("hidden");
@@ -7397,6 +7405,9 @@ Current version: 101
 		localsettings.miro_type = document.getElementById("miro_type").value;
 		localsettings.miro_tau = document.getElementById("miro_tau").value;
 		localsettings.miro_eta = document.getElementById("miro_eta").value;
+        localsettings.dynatemp = (document.getElementById("dynatemp").checked ? true : false);
+        localsettings.min_temp = document.getElementById("min_temp").value;
+		localsettings.max_temp = document.getElementById("max_temp").value;
 
 		localsettings.speech_synth = document.getElementById("ttsselect").value;
 		localsettings.beep_on = (document.getElementById("beep_on").checked?true:false);
@@ -7450,6 +7461,8 @@ Current version: 101
 		localsettings.miro_type = cleannum(localsettings.miro_type, 0, 2);
 		localsettings.miro_tau = cleannum(localsettings.miro_tau, 0, 30);
 		localsettings.miro_eta = cleannum(localsettings.miro_eta, 0, 10);
+        localsettings.min_temp = cleannum(localsettings.min_temp, 0, 2);
+		localsettings.max_temp = cleannum(localsettings.max_temp, 1.95, 2);
 		localsettings.sampler_seed = cleannum(localsettings.sampler_seed, -1, 999999);
 		toggle_invert_colors();
 
@@ -7704,6 +7717,8 @@ Current version: 101
 				"tfs": localsettings.tfs_s,
 				"rep_pen_range": localsettings.rep_pen_range,
 				"rep_pen_slope": localsettings.rep_pen_slope,
+                "min_temp": localsettings.min_temp,
+				"max_temp": localsettings.max_temp,
 				"sampler_order": localsettings.sampler_order
 			},
 			"models": selected_models.map((m) => { return m.name }),
@@ -8562,6 +8577,8 @@ Current version: 101
 					"tfs": localsettings.tfs_s,
 					"rep_pen_range": localsettings.rep_pen_range,
 					"rep_pen_slope": localsettings.rep_pen_slope,
+                    "min_temp": localsettings.min_temp,
+					"max_temp": localsettings.max_temp,
 					"sampler_order": localsettings.sampler_order
 				},
 				"models": selected_models.map((m) => { return m.name }),
@@ -12531,6 +12548,25 @@ Current version: 101
 						   <input type="checkbox" id="invert_colors" style="margin:0px 0px 0px auto;">
 						</div>
 					</div>
+
+                    <div class="settingitem">
+					    <div class="settinglabel">
+                            <div class="justifyleft settingsmall">DynaTemp <span class="helpicon">?<span class="helptext">DynaTemp Configuration.</span></span></div>
+                            <input type="checkbox" id="dynatemp" style="margin:0px 0px 0px auto;">
+                            <table class="settingsmall text-center" style="border-spacing: 4px 2px;	border-collapse: separate;">
+								<tbody>
+								<tr>
+								    <th title="Minimum Dynamic Temperature Value. Default to 0">MinTemp</th>
+								    <th title="Maximum Dynamic Temperature Value. Default to 2.0">MaxTemp</th>
+								</tr>
+								<tr>
+								    <td><input class="" type="text" inputmode="decimal" placeholder="0" value="0" id="min_temp"></td>
+								    <td><input class="" type="text" inputmode="decimal" placeholder="2.0" value="2.0" id="max_temp"></td>
+								</tr>
+							  </tbody>
+							</table>
+                        </div>
+                    </div>
 
 				</div>
 

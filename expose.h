@@ -76,6 +76,8 @@ struct generation_inputs
     const char * grammar;
     const bool grammar_retain_state;
     const bool quiet = false;
+    const float min_temp;
+    const float max_temp;
 };
 struct generation_outputs
 {
