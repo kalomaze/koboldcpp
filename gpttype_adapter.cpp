@@ -1487,28 +1487,28 @@ generation_outputs gpttype_generate(const generation_inputs inputs, generation_o
 
     std::string addedmemory = inputs.memory;
 
-    params.prompt = inputs.prompt;
-    params.seed = inputs.seed;
-    params.n_predict = inputs.max_length;
-    params.top_k = inputs.top_k;
-    params.top_p = inputs.top_p;
-    params.min_p = inputs.min_p;
-    params.typical_p = inputs.typical_p;
-    params.tfs_z = inputs.tfs;
-    params.temp = inputs.temperature;
-    params.repeat_last_n = inputs.rep_pen_range;
-    params.repeat_penalty = inputs.rep_pen;
-    params.presence_penalty = inputs.presence_penalty;
-    params.mirostat = inputs.mirostat;
-    params.mirostat_eta = inputs.mirostat_eta;
-    params.mirostat_tau = inputs.mirostat_tau;
-    params.dynatemp = inputs.dynatemp;
-    params.min_temp = inputs.min_temp;
-    params.max_temp = inputs.max_temp;
-    params.n_ctx = inputs.max_context_length;
-    params.n_batch = n_batch;
-    params.n_threads = n_threads;
-    params.n_threads_batch = n_blasthreads;
+    kcpp_params->prompt = inputs.prompt;
+    kcpp_params->seed = inputs.seed;
+    kcpp_params->n_predict = inputs.max_length;
+    kcpp_params->top_k = inputs.top_k;
+    kcpp_params->top_p = inputs.top_p;
+    kcpp_params->min_p = inputs.min_p;
+    kcpp_params->typical_p = inputs.typical_p;
+    kcpp_params->tfs_z = inputs.tfs;
+    kcpp_params->temp = inputs.temperature;
+    kcpp_params->repeat_last_n = inputs.rep_pen_range;
+    kcpp_params->repeat_penalty = inputs.rep_pen;
+    kcpp_params->presence_penalty = inputs.presence_penalty;
+    kcpp_params->mirostat = inputs.mirostat;
+    kcpp_params->mirostat_eta = inputs.mirostat_eta;
+    kcpp_params->mirostat_tau = inputs.mirostat_tau;
+    kcpp_params->dynatemp = inputs.dynatemp;
+    kcpp_params->min_temp = inputs.min_temp;
+    kcpp_params->max_temp = inputs.max_temp;
+    kcpp_params->n_ctx = inputs.max_context_length;
+    kcpp_params->n_batch = n_batch;
+    kcpp_params->n_threads = n_threads;
+    kcpp_params->n_threads_batch = n_blasthreads;
 
     bool stream_sse = inputs.stream_sse;
 
@@ -1900,6 +1900,9 @@ generation_outputs gpttype_generate(const generation_inputs inputs, generation_o
             const float presence_penalty = kcpp_params->presence_penalty;
             const float typical_p = kcpp_params->typical_p;
             const float tfs_z = kcpp_params->tfs_z;
+            const float dynatemp = kcpp_params->dynatemp;
+            const float min_temp = kcpp_params->min_temp;
+            const float max_temp = kcpp_params->max_temp;
 
             if (!startedsampling)
             {
@@ -1955,8 +1958,7 @@ generation_outputs gpttype_generate(const generation_inputs inputs, generation_o
 
             id = SampleLogits(logitsPtr, nctx, n_vocab, last_n_size, repeat_penalty, presence_penalty,
             top_k, top_a, top_p, min_p, typical_p, tfs_z, temp, rng,
-
-            kcpp_params->mirostat, kcpp_params->mirostat_tau, kcpp_params->mirostat_eta, sampler_order, grammar, kcpp_params->dynatemp, kcpp_params->min_temp, kcpp_params->max_temp);
+            kcpp_params->mirostat, kcpp_params->mirostat_tau, kcpp_params->mirostat_eta, sampler_order, grammar, dynatemp, min_temp, max_temp);
 
             if (grammar != nullptr) {
                 grammar_accept_token(file_format, n_vocab, grammar, id);
