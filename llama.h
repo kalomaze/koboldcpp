@@ -117,8 +117,8 @@ extern "C" {
 
     typedef struct llama_token_data {
         llama_token id; // token id
-        double logit;    // log-odds of the token
-        double p;        // probability of the token
+        float logit;    // log-odds of the token
+        float p;        // probability of the token
     } llama_token_data;
 
     typedef struct llama_token_data_array {
