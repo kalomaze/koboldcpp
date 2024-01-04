@@ -3,6 +3,7 @@
 const int stop_token_max = 16;
 const int ban_token_max = 16;
 const int tensor_split_max = 16;
+const int logit_bias_max = 16;
 // match kobold's sampler list and order
 enum samplers
 {
@@ -21,6 +22,10 @@ enum stop_reason
     OUT_OF_TOKENS=0,
     EOS_TOKEN=1,
     CUSTOM_STOPPER=2,
+};
+struct logit_bias {
+    int32_t token_id;
+    float bias;
 };
 struct load_model_inputs
 {
@@ -79,6 +84,8 @@ struct generation_inputs
     const bool dynatemp = false;
     const float min_temp;
     const float max_temp;
+    const logit_bias logit_biases[logit_bias_max];
+
 };
 struct generation_outputs
 {

@@ -39,8 +39,8 @@ endif
 #
 
 # keep standard at C11 and C++11
-CFLAGS   = -I.            -I./include -I./include/CL -I./otherarch -I./otherarch/tools -Ofast -DNDEBUG -std=c11   -fPIC -DLOG_DISABLE_LOGS -D_GNU_SOURCE
-CXXFLAGS = -I. -I./common -I./include -I./include/CL -I./otherarch -I./otherarch/tools -Ofast -DNDEBUG -std=c++11 -fPIC -DLOG_DISABLE_LOGS -D_GNU_SOURCE
+CFLAGS   = -I.            -I./include -I./include/CL -I./otherarch -I./otherarch/tools -O3 -DNDEBUG -std=c11   -fPIC -DLOG_DISABLE_LOGS -D_GNU_SOURCE
+CXXFLAGS = -I. -I./common -I./include -I./include/CL -I./otherarch -I./otherarch/tools -O3 -DNDEBUG -std=c++11 -fPIC -DLOG_DISABLE_LOGS -D_GNU_SOURCE
 LDFLAGS  =
 
 # these are used on windows, to build some libraries with extra old device compatibility
@@ -125,17 +125,7 @@ ifeq ($(UNAME_M),$(filter $(UNAME_M),x86_64 i686))
 		endif
 	endif
 endif
-ifneq ($(filter ppc64%,$(UNAME_M)),)
-	POWER9_M := $(shell grep "POWER9" /proc/cpuinfo)
-	ifneq (,$(findstring POWER9,$(POWER9_M)))
-		CFLAGS   += -mcpu=power9
-		CXXFLAGS += -mcpu=power9
-	endif
-	# Require c++23's std::byteswap for big-endian support.
-	ifeq ($(UNAME_M),ppc64)
-		CXXFLAGS += -std=c++23 -DGGML_BIG_ENDIAN
-	endif
-endif
+
 ifndef LLAMA_NO_ACCELERATE
 	# Mac M1 - include Accelerate framework.
 	# `-framework Accelerate` works on Mac Intel as well, with negliable performance boost (as of the predict time).
@@ -148,7 +138,7 @@ endif
 # it is recommended to use the CMAKE file to build for cublas if you can - will likely work better
 ifdef LLAMA_CUBLAS
 	CUBLAS_FLAGS = -DGGML_USE_CUBLAS -I/usr/local/cuda/include -I/opt/cuda/include -I$(CUDA_PATH)/targets/x86_64-linux/include
-	CUBLASLD_FLAGS = -lcublas -lculibos -lcudart -lcublasLt -lpthread -ldl -lrt -L/usr/local/cuda/lib64 -L/opt/cuda/lib64 -L$(CUDA_PATH)/targets/x86_64-linux/lib
+	CUBLASLD_FLAGS = -lcuda -lcublas -lculibos -lcudart -lcublasLt -lpthread -ldl -lrt -Lconda/envs/linux/lib -Lconda/envs/linux/lib/stubs -L/usr/local/cuda/lib64 -L/opt/cuda/lib64 -L$(CUDA_PATH)/targets/x86_64-linux/lib -L/usr/local/cuda/targets/aarch64-linux/lib -L/usr/lib/wsl/lib
 	CUBLAS_OBJS = ggml-cuda.o ggml_v2-cuda.o ggml_v2-cuda-legacy.o
 	NVCC      = nvcc
 	NVCCFLAGS = --forward-unknown-to-host-compiler -use_fast_math
@@ -193,10 +183,7 @@ ifdef LLAMA_CUDA_MMQ_Y
 	NVCCFLAGS += -DGGML_CUDA_MMQ_Y=$(LLAMA_CUDA_MMQ_Y)
 else
 	NVCCFLAGS += -DGGML_CUDA_MMQ_Y=64
-endif # LLAMA_CUDA_MMQ_Y
-#ifdef LLAMA_CUDA_CUBLAS
-#	NVCCFLAGS += -DGGML_CUDA_CUBLAS
-#endif # LLAMA_CUDA_CUBLAS
+endif
 ifdef LLAMA_CUDA_CCBIN
 	NVCCFLAGS += -ccbin $(LLAMA_CUDA_CCBIN)
 endif
@@ -240,7 +227,6 @@ ggml_v2-cuda-legacy.o: otherarch/ggml_v2-cuda-legacy.cu otherarch/ggml_v2-cuda-l
 endif # LLAMA_HIPBLAS
 
 
-
 ifdef LLAMA_METAL
 	CFLAGS   += -DGGML_USE_METAL -DGGML_METAL_NDEBUG
 	CXXFLAGS += -DGGML_USE_METAL
@@ -254,20 +240,30 @@ endif # LLAMA_METAL
 ifneq ($(filter aarch64%,$(UNAME_M)),)
 	# Apple M1, M2, etc.
 	# Raspberry Pi 3, 4, Zero 2 (64-bit)
-	CFLAGS +=
-	CXXFLAGS +=
+	CFLAGS 	 += -mcpu=native
+	CXXFLAGS += -mcpu=native
 endif
 ifneq ($(filter armv6%,$(UNAME_M)),)
 	# Raspberry Pi 1, Zero
-	CFLAGS += -mfpu=neon-fp-armv8 -mfp16-format=ieee -mno-unaligned-access
+	CFLAGS 	 += -mfpu=neon-fp-armv8 -mfp16-format=ieee -mno-unaligned-access
+	CXXFLAGS += -mfpu=neon-fp-armv8 -mfp16-format=ieee -mno-unaligned-access
 endif
 ifneq ($(filter armv7%,$(UNAME_M)),)
 	# Raspberry Pi 2
-	CFLAGS += -mfpu=neon-fp-armv8 -mfp16-format=ieee -mno-unaligned-access -funsafe-math-optimizations
+	CFLAGS   += -mfpu=neon-fp-armv8 -mfp16-format=ieee -mno-unaligned-access -funsafe-math-optimizations
+	CXXFLAGS += -mfpu=neon-fp-armv8 -mfp16-format=ieee -mno-unaligned-access -funsafe-math-optimizations
 endif
 ifneq ($(filter armv8%,$(UNAME_M)),)
 	# Raspberry Pi 3, 4, Zero 2 (32-bit)
-	CFLAGS += -mfp16-format=ieee -mno-unaligned-access
+	CFLAGS   += -mfp16-format=ieee -mno-unaligned-access
+	CXXFLAGS += -mfp16-format=ieee -mno-unaligned-access
+endif
+ifneq ($(filter ppc64%,$(UNAME_M)),)
+	POWER9_M := $(shell grep "POWER9" /proc/cpuinfo)
+	ifneq (,$(findstring POWER9,$(POWER9_M)))
+		CFLAGS   += -mcpu=power9
+		CXXFLAGS += -mcpu=power9
+	endif
 endif
 
 
