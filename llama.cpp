@@ -7790,38 +7790,6 @@ void llama_set_rng_seed(struct llama_context * ctx, uint32_t seed) {
     ctx->rng.seed(seed);
 }
 
-void read_or_write_temp(float* minTemp, float* maxTemp, float* ExponentVal) {
-    std::ifstream infile("SamplerTemp.txt");
-    if (!infile.good()) {
-        // File doesn't exist, create it with default values
-        std::ofstream outfile("SamplerTemp.txt");
-        outfile << "minTemp = 0.0\n";
-        outfile << "maxTemp = 2.0\n";
-        outfile << "ExponentVal = 1.0\n";
-        outfile.close();
-
-        // Set default values
-        *minTemp = 0.0f;
-        *maxTemp = 2.0f;
-        *ExponentVal = 1.0f;
-
-    } else {
-        // File exists, read the values from it
-        std::string line;
-        while (getline(infile, line)) {
-            std::istringstream iss(line);
-            std::string key, equals;
-            float value;
-            if (iss >> key >> equals >> value) {
-                if (key == "minTemp") *minTemp = value;
-                else if (key == "maxTemp") *maxTemp = value;
-                else if (key == "ExponentVal") *ExponentVal = value; // Add this line
-            }
-        }
-        infile.close();
-    }
-}
-
 void read_or_write_ext(bool &worstToken, float &randomizationFactor, bool &isTrueRNG, unsigned int &rngSeed) {
     std::ifstream infile("ExtStuff.txt");
     if (!infile.good()) {
@@ -7919,13 +7887,6 @@ void llama_sample_top_p(struct llama_context * ctx, llama_token_data_array * can
 
     llama_sample_softmax(ctx, candidates);
 
-    // Print the top tokens before filtering
-    printf("Top 10 tokens before TOP P:\n");
-    for (size_t i = 0; i < candidates->size && i < 10; ++i) {  // Adjust 10 to however many top tokens you want to display
-        printf("Token %zu (ID: %d): %.6f%%\n", i + 1, candidates->data[i].id, candidates->data[i].p * 100);
-        printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);  // Multiplying by 100 to convert to percentage
-    }
-
     const int64_t t_start_sample_us = ggml_time_us();
 
     // Compute the cumulative probabilities
@@ -7943,20 +7904,8 @@ void llama_sample_top_p(struct llama_context * ctx, llama_token_data_array * can
         }
     }
 
-    // Print the top tokens before filtering
-    printf("TOP 10 BEFORE RESIZE (TOP P):\n");
-    for (size_t i = 0; i < candidates->size && i < 10; ++i) {  // Adjust 10 to however many top tokens you want to display
-        printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);  // Multiplying by 100 to convert to percentage
-    }
-
     // Resize the output vector to keep only the top-p tokens
     candidates->size = last_idx;
-
-    // Print the top tokens before filtering
-    printf("Top 10 tokens AFTER TOP P:\n");
-    for (size_t i = 0; i < candidates->size && i < 10; ++i) {  // Adjust 10 to however many top tokens you want to display
-        printf("Token %zu: %.6f%%\n", i + 1, candidates->data[i].p * 100);  // Multiplying by 100 to convert to percentage
-    }
 
     if (ctx) {
         ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
@@ -7984,7 +7933,7 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
 
         // Read or write the external values
         read_or_write_ext(worstToken, randomizationFactor, isTrueRNG, rngSeed);
-        
+
         // Create a random number generator
         std::default_random_engine generator;
         if (isTrueRNG) {
@@ -8000,7 +7949,7 @@ void llama_sample_min_p(struct llama_context * ctx, llama_token_data_array * can
 
         // Create a Gaussian distribution with mean 0 and standard deviation of your choice
         std::normal_distribution<float> distribution(0.0f, randomizationFactor); // Replace 1.0f with the desired standard deviation
-        
+
         // Print the randomization factor read from the file
         printf("Read randomizationFactor from file: %f\n", randomizationFactor);
 
@@ -8196,13 +8145,12 @@ void llama_sample_typical(struct llama_context * ctx, llama_token_data_array * c
     }
 }
 
-void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
+void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp, float min_temp = 0, float max_temp = 2.0f) {
     const int64_t t_start_sample_us = ggml_time_us();
 
     llama_sample_softmax(ctx, candidates_p);
 
-    float minTemp, maxTemp, ExponentVal;
-    read_or_write_temp(&minTemp, &maxTemp, &ExponentVal);
+    float exponent_val = 1.0f;
 
     // Calculate entropy of the softmax probabilities
     float entropy = 0.0f;
@@ -8211,30 +8159,6 @@ void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * c
         if (prob > 0.0f) { // Ensure no log(0)
             entropy -= prob * logf(prob);
         }
-    }
-
-    // Print the top 25 logits probabilities
-    printf("\nTop 25 Logits Probabilities (in percentages):\n");
-    for (size_t i = 0; i < 25 && i < candidates_p->size; ++i) {
-        printf("Token %zu: %f%%\n", i+1, candidates_p->data[i].p * 100.0f);
-    }
-
-    // Open a file in append mode
-    std::ofstream file("raw_logit_25.txt", std::ios::app);
-
-    if (file.is_open()) {
-        // Write the top 25 logits probabilities to the file
-        file << "\nTop 25 Logits Probabilities (in percentages):\n";
-        for (size_t i = 0; i < 25 && i < candidates_p->size; ++i) {
-            file << "Token " << i+1 << ": " << candidates_p->data[i].p * 100.0f << "%\n";
-        }
-        // Write a newline for separation
-        file << "\n";
-
-        // Close the file
-        file.close();
-    } else {
-        std::cerr << "Unable to open file for writing.\n";
     }
 
     // Calculate maximum possible entropy
@@ -8249,15 +8173,15 @@ void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * c
     float normalized_entropy = entropy / max_entropy;
 
     // Map the normalized entropy to the desired temperature range using the power function
-    float dyn_temp = minTemp + (maxTemp - minTemp) * powf(normalized_entropy, ExponentVal);
+    float dyn_temp = min_temp + (max_temp - min_temp) * powf(normalized_entropy, exponent_val);
 
-    printf("Your text maxtemp value is: %f\n", maxTemp);
+    printf("Your text maxtemp value is: %f\n", max_temp);
 
     // Print the variables
     printf("Entropy: %f\n", entropy);
     printf("Max Possible Entropy: %f\n", max_entropy);
     printf("Normalized Entropy: %f\n", normalized_entropy);
-    printf("Exponent: %f\n", ExponentVal);
+    printf("Exponent: %f\n", exponent_val);
     printf("Dynamic Temperature (dyn_temp): %f\n", dyn_temp);
 
     // Apply the dynamically calculated temperature scaling
@@ -8294,7 +8218,6 @@ void llama_sample_hhi(struct llama_context * ctx, llama_token_data_array * candi
     llama_sample_softmax(ctx, candidates_p);
 
     float minTemp, maxTemp, ExponentVal;
-    read_or_write_temp(&minTemp, &maxTemp, &ExponentVal);
 
     // Print the top 10 logits probabilities
     printf("\nTop 10 Logits Probabilities (in percentages):\n");
@@ -8331,45 +8254,8 @@ void llama_sample_hhi(struct llama_context * ctx, llama_token_data_array * candi
     }
 }
 
-void llama_sample_greedy_dynamic_temp(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
+void llama_sample_greedy_dynamic_temp(struct llama_context* ctx, llama_token_data_array* candidates_p, float temp, float min_temp = 0.0f, float max_temp = 2.0f, float k = 1.0f, float sigmoid_center_point = 0.75f) {
     const int64_t t_start_sample_us = ggml_time_us();
-
-    /// variables for the DynaTemp function 
-
-    float minTemp, maxTemp, k, sigmoidCenterPoint;
-
-    std::ifstream infile("DynaTemp.txt");
-    if (!infile.good()) {
-        // File doesn't exist, create it with default values
-        std::ofstream outfile("DynaTemp.txt");
-        outfile << "minTemp = 0.0\n";
-        outfile << "maxTemp = 2.0\n";
-        outfile << "k = 10.0\n";
-        outfile << "sigmoidCenterPoint = 0.5\n";
-        outfile.close();
-
-        // Set default values
-        minTemp = 0.0f;
-        maxTemp = 2.0f;
-        k = 10.0f;
-        sigmoidCenterPoint = 0.5f;
-
-    } else {
-        // File exists, read the values from it
-        std::string line;
-        while (getline(infile, line)) {
-            std::istringstream iss(line);
-            std::string key, equals;
-            float value;
-            if (iss >> key >> equals >> value) {
-                if (key == "minTemp") minTemp = value;
-                else if (key == "maxTemp") maxTemp = value;
-                else if (key == "k") k = value;
-                else if (key == "sigmoidCenterPoint") sigmoidCenterPoint = value;
-            }
-        }
-        infile.close();
-    }
 
     llama_sample_softmax(ctx, candidates_p);
 
@@ -8385,17 +8271,17 @@ void llama_sample_greedy_dynamic_temp(struct llama_context * ctx, llama_token_da
 
     // Print out the probability of the token with the highest logit before temperature scaling [TEMPORARY]
     printf("\nProbability of the most likely token before temperature scaling: %f\n", prob_max_token_before_temp);
-    
+
     // Dynamic temperature adjustment based on top token probability
 
-    float dynamic_temp = maxTemp - (maxTemp - minTemp) / (1 + expf(-k * (prob_max_token_before_temp - sigmoidCenterPoint)));
+    float dynamic_temp = max_temp - (max_temp - min_temp) / (1 + expf(-k * (prob_max_token_before_temp - sigmoid_center_point)));
 
     // Print out the dynamically calculated temperature
     printf("Dynamically calculated temperature for this token: %f\n", dynamic_temp);
-    printf("The minTemp: %f\n", minTemp);
-    printf("The maxTemp: %f\n", maxTemp);
+    printf("The minTemp: %f\n", min_temp);
+    printf("The maxTemp: %f\n", max_temp);
     printf("The k multiplier: %f\n", k);
-    printf("The sigmoidCenterPoint: %f\n", sigmoidCenterPoint);
+    printf("The sigmoidCenterPoint: %f\n", sigmoid_center_point);
 
     // Apply the dynamically calculated temperature scaling
     for (size_t i = 0; i < candidates_p->size; ++i) {
