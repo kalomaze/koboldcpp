@@ -2630,42 +2630,7 @@ static void llm_load_hparams(
     ml.get_key  (LLM_KV_ATTENTION_HEAD_COUNT, hparams.n_head);
     ml.get_key  (LLM_KV_BLOCK_COUNT,          hparams.n_layer);
     ml.get_key  (LLM_KV_EXPERT_COUNT,         hparams.n_expert,      false);
-
-    // Declare the custom expert used count variable and initialize it to 0
-    int CUSTOM_EXPERT_USED_COUNT = 0;
-
-    if (hparams.n_expert > 0) {
-        CUSTOM_EXPERT_USED_COUNT = 2; // Default value or error value
-        std::string filename = "experts.txt";
-        // Try to open the file for reading
-        std::ifstream infile(filename);
-        if (infile.is_open()) {
-            if (!(infile >> CUSTOM_EXPERT_USED_COUNT)) {
-                // If reading fails, set CUSTOM_EXPERT_USED_COUNT to an error value or handle the error as needed
-                printf("Error reading from file: %s\n", filename.c_str());
-            }
-            infile.close(); // Close the file after reading or failing to read
-        } else {
-            // The file doesn't exist or couldn't be opened for reading. Try creating it.
-            std::ofstream outfile(filename);
-            if (outfile.is_open()) {
-                outfile << CUSTOM_EXPERT_USED_COUNT; // Write 2 to the file
-                hparams.n_expert_used = CUSTOM_EXPERT_USED_COUNT;
-                outfile.close(); // Close the file after writing
-            } else {
-                // If the file couldn't be opened for writing, print an error message
-                printf("Error creating file: %s\n", filename.c_str());
-            }
-        }
-        // Setter for the number of experts that will be used
-        hparams.n_expert_used = CUSTOM_EXPERT_USED_COUNT;
-        // Print out the number of experts that will be used
-        printf("\n-------------------------------------------------------\n");
-        printf("Number of experts that will be used per token (if MoE): %d\n", hparams.n_expert_used);
-        printf("-------------------------------------------------------\n");
-    }
-
-    // Perform assertions to ensure valid parameters are being used
+    ml.get_key (LLM_KV_EXPERT_USED_COUNT, hparams.n_expert_used, false);
 
     GGML_ASSERT(hparams.n_expert <= LLAMA_MAX_EXPERTS);
     GGML_ASSERT(hparams.n_expert_used <= hparams.n_expert);
@@ -8420,6 +8385,23 @@ void llama_sample_typical(struct llama_context * ctx, llama_token_data_array * c
     }
 }
 
+void llama_sample_temp(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
+    const int64_t t_start_sample_us = ggml_time_us();
+
+    for (size_t i = 0; i < candidates_p->size; ++i) {
+        candidates_p->data[i].logit /= temp;
+    }
+
+    if (ctx) {
+        ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
+    }
+}
+
+
+void llama_sample_temperature(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
+    llama_sample_temp(ctx, candidates_p, temp);
+}
+
 void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp, float min_temp = 0, float max_temp = 2.0f) {
     const int64_t t_start_sample_us = ggml_time_us();
 
@@ -8487,20 +8469,53 @@ void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * c
     }
 }
 
-void llama_sample_temp(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
+// The llama.cpp repetition penalty code goes unused in kobold's API
+
+void llama_sample_repetition_penalties(
+            struct llama_context * ctx,
+          llama_token_data_array * candidates,
+               const llama_token * last_tokens,
+                          size_t   penalty_last_n,
+                           float   penalty_repeat,
+                           float   penalty_freq,
+                           float   penalty_present) {
+    if (penalty_last_n == 0 || (penalty_repeat == 1.0f && penalty_freq == 0.0f && penalty_present == 0.0f)) {
+        return;
+    }
+
     const int64_t t_start_sample_us = ggml_time_us();
 
-    for (size_t i = 0; i < candidates_p->size; ++i) {
-        candidates_p->data[i].logit /= temp;
+    // Create a frequency map to count occurrences of each token in last_tokens
+    std::unordered_map<llama_token, int> token_count;
+    for (size_t i = 0; i < penalty_last_n; ++i) {
+        token_count[last_tokens[i]]++;
     }
+
+    // Apply frequency and presence penalties to the candidates
+    for (size_t i = 0; i < candidates->size; ++i) {
+        const auto token_iter = token_count.find(candidates->data[i].id);
+        if (token_iter == token_count.end()) {
+            continue;
+        }
+
+        const int count = token_iter->second;
+
+        // The academic publication that described this technique actually just only divided, but that would cause tokens with negative logits to become more likely, which is obviously wrong.
+        // This is common fix for this problem, which is to multiply by the penalty instead of dividing.
+        if (candidates->data[i].logit <= 0) {
+            candidates->data[i].logit *= penalty_repeat;
+        } else {
+            candidates->data[i].logit /= penalty_repeat;
+        }
+
+        candidates->data[i].logit -= float(count) * penalty_freq + float(count > 0) * penalty_present;
+    }
+
+    candidates->sorted = false;
 
     if (ctx) {
         ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
     }
-}
-
-void llama_sample_temperature(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
-    llama_sample_temp(ctx, candidates_p, temp);
 }
 
 void llama_sample_grammar(struct llama_context * ctx, llama_token_data_array * candidates, const struct llama_grammar * grammar) {
