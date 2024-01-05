@@ -8432,8 +8432,8 @@ void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * c
     // Map the normalized entropy to the desired temperature range using the power function
     float dyn_temp = min_temp + (max_temp - min_temp) * powf(normalized_entropy, exponent_val);
 
+    //todo: Ensure to hide print statements unless debugging!
     printf("Your text maxtemp value is: %f\n", max_temp);
-
     // Print the variables
     printf("Entropy: %f\n", entropy);
     printf("Max Possible Entropy: %f\n", max_entropy);
@@ -8458,6 +8458,7 @@ void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * c
         candidates_p->data[i].p /= cum_sum_double; // Re-normalize the probabilities
     }
 
+    //todo: Ensure to hide print statements unless debugging!
     // Print the updated top 25 probabilities after temperature scaling
     printf("\nUpdated Top 25 Probabilities After Dynamic Temperature Scaling (in percentages):\n");
     for (size_t i = 0; i < 25 && i < candidates_p->size; ++i) {

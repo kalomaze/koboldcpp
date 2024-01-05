@@ -82,9 +82,7 @@ struct gpt_params {
     float   mirostat_eta      = 0.10f; // learning rate
 
     // DynaTemp!
-    bool    dynatemp           = false; // enable DynaTemp
-    float   min_temp           = 0.00f; // minimum temperature
-    float   max_temp           = 2.00f; // maximum temperature
+    float   dynatemp_range     = 0.0f;  // enables DynaTemp if greater than 0. dynatemp_min = temperature - dt_range, dynatemp_max = temperature + dt_range
 
     // // sampling parameters
     struct llama_sampling_params sparams;

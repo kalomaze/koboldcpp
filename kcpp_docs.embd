@@ -139,18 +139,9 @@
                            "description": "If true, prevents the EOS token from being generated (Ban EOS). For unbantokens, set this to false.",
                            "type": "boolean"
                         },
-                        "dynatemp": {
-                           "default": false,
-                           "description": "If true, uses dynamic temperature. If false, uses static temperature.",
-                           "type": "boolean"
-                        },
-                        "min_temp": {
-                           "description": "Dynatemp Minimum temperature value.",
-                           "exclusiveMinimum": 0,
-                           "type": "number"
-                        },
-                        "max_temp": {
-                           "description": "Maximum temperature value.",
+                        "dynatemp_range": {
+                           "default": 0,
+                           "description": "If greater than 0, uses dynamic temperature. Dynamic temperature range will be between Temp+Range and Temp-Range. If less or equal to 0 , uses static temperature.",
                            "exclusiveMinimum": 0,
                            "type": "number"
                         },
