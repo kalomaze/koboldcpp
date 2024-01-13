@@ -468,6 +468,14 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
         global friendlymodelname
         is_quiet = args.quiet
         def run_blocking(): #api format 1=basic,2=kai,3=oai,4=oai-chat
+
+            #alias all nonstandard alternative names for rep pen.
+            rp1 = genparams.get('repeat_penalty', 1.0)
+            rp2 = genparams.get('repetition_penalty', 1.0)
+            rp3 = genparams.get('rep_pen', 1.0)
+            rp_max = max(rp1,rp2,rp3)
+            genparams["rep_pen"] = rp_max
+
             if api_format==1:
                 genparams["prompt"] = genparams.get('text', "")
                 genparams["top_k"] = int(genparams.get('top_k', 120))
@@ -477,8 +485,8 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
                 genparams["max_length"] = genparams.get('max_tokens', 100)
                 presence_penalty = genparams.get('presence_penalty', genparams.get('frequency_penalty', 0.0))
                 genparams["presence_penalty"] = presence_penalty
-                if presence_penalty > 0 and (genparams.get('rep_pen', 0)==0):
-                    genparams["rep_pen"] = 1.0
+                if presence_penalty > 0:
+                    genparams["rep_pen"] = 1.0 #disable rep pen if presence pen is specified for OAI
                 # openai allows either a string or a list as a stop sequence
                 if isinstance(genparams.get('stop',[]), list):
                     genparams["stop_sequence"] = genparams.get('stop', [])
@@ -534,7 +542,7 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
                 typical_p=genparams.get('typical', 1.0),
                 tfs=genparams.get('tfs', 1.0),
                 rep_pen=genparams.get('rep_pen', 1.0),
-                rep_pen_range=genparams.get('rep_pen_range', 0),
+                rep_pen_range=genparams.get('rep_pen_range', 256),
                 presence_penalty=genparams.get('presence_penalty', 0.0),
                 mirostat=genparams.get('mirostat', 0),
                 mirostat_tau=genparams.get('mirostat_tau', 5.0),
