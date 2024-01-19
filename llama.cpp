@@ -79,6 +79,7 @@
 #include <thread>
 #include <type_traits>
 #include <unordered_map>
+#include <cfloat>
 
 #if defined(_MSC_VER)
 #pragma warning(disable: 4244 4267) // possible loss of data
@@ -8385,18 +8386,110 @@ void llama_sample_typical(struct llama_context * ctx, llama_token_data_array * c
     }
 }
 
-void llama_sample_temp(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
+void llama_sample_temp(struct llama_context * ctx, llama_token_data_array * candidates, float temp) {
+    // Get current time
     const int64_t t_start_sample_us = ggml_time_us();
 
-    for (size_t i = 0; i < candidates_p->size; ++i) {
-        candidates_p->data[i].logit /= temp;
+    // Apply temperature scaling
+    for (size_t i = 0; i < candidates->size; ++i) {
+        candidates->data[i].logit /= temp;
     }
 
+    // Print top and bottom 3 logits before normalization and smoothing
+    printf("Top 3 logits before normalization and smoothing:\n");
+    for (size_t i = 0; i < 3; ++i) {
+        printf("Logit[%zu] = %f\n", i, candidates->data[i].logit);
+    }
+    printf("Bottom 3 logits before normalization and smoothing:\n");
+    for (size_t i = candidates->size - 3; i < candidates->size; ++i) {
+        printf("Logit[%zu] = %f\n", i, candidates->data[i].logit);
+    }
+
+    // Print top 5 tokens' softmax probabilities before smoothing
+    printf("Top 5 tokens' softmax probabilities before smoothing:\n");
+    llama_sample_softmax(ctx, candidates);
+    for (size_t i = 0; i < 5; ++i) {
+        printf("Token[%zu] = %f\n", i, candidates->data[i].p);
+    }
+
+    // Find min and max logits for normalization
+    float min_logit = candidates->data[0].logit;
+    float max_logit = candidates->data[0].logit;
+    for (size_t i = 1; i < candidates->size; ++i) {
+        if (candidates->data[i].logit < min_logit) min_logit = candidates->data[i].logit;
+        if (candidates->data[i].logit > max_logit) max_logit = candidates->data[i].logit;
+    }
+
+    // Read smoothing_factor from "ExtStuff.txt"
+    float smoothing_factor = 0;
+    FILE* file = fopen("ExtStuff.txt", "r");
+    if (file) {
+        if (fscanf(file, "smoothing_factor=%f", &smoothing_factor) != 1) { // Corrected variable name here
+            smoothing_factor = 0;
+        }
+        fclose(file);
+    } else {
+        file = fopen("ExtStuff.txt", "w");
+        if (file) {
+            fprintf(file, "smoothing_factor=0\n");
+            fclose(file);
+        }
+    }
+
+    // Verbose print the smoothing_factor read
+    printf("Read smoothing_factor: %f\n", smoothing_factor);
+
+    // Only apply smoothing if smoothing_factor is not 0
+    if (smoothing_factor != 0) {
+        // Apply the remapping and sigmoid function
+        float new_min_logit = FLT_MAX;
+        float new_max_logit = FLT_MIN;
+        for (size_t i = 0; i < candidates->size; ++i) {
+            // Normalize the logits to the [0,1] range
+            float normalized_logit = (candidates->data[i].logit - min_logit) / (max_logit - min_logit);
+
+            // Apply the sigmoid function to the normalized logits
+            float sigmoid_logit = 1.0f / (1.0f + expf(-smoothing_factor * (normalized_logit - 0.5f)));
+
+            // Update the logits with the smoothed values
+            candidates->data[i].logit = sigmoid_logit * (max_logit - min_logit) + min_logit;
+
+            // Find new min and max logits after smoothing
+            if (candidates->data[i].logit < new_min_logit) new_min_logit = candidates->data[i].logit;
+            if (candidates->data[i].logit > new_max_logit) new_max_logit = candidates->data[i].logit;
+        }
+
+        // Rescale logits again so that new min and max logits match original min and max logits
+        for (size_t i = 0; i < candidates->size; ++i) {
+            candidates->data[i].logit = (candidates->data[i].logit - new_min_logit) / (new_max_logit - new_min_logit) * (max_logit - min_logit) + min_logit;
+        }
+
+        // Verbose print top and bottom 3 logits after smoothing
+        printf("\nTop 3 logits after smoothing:\n");
+        for (size_t i = 0; i < 3; ++i) {
+            printf("Logit[%zu] = %f\n", i, candidates->data[i].logit);
+        }
+        printf("Bottom 3 logits after smoothing:\n");
+        for (size_t i = candidates->size - 3; i < candidates->size; ++i) {
+            printf("Logit[%zu] = %f\n", i, candidates->data[i].logit);
+        }
+
+        // Print top 5 tokens' softmax probabilities after smoothing
+        printf("Top 5 tokens' softmax probabilities after smoothing:\n");
+        llama_sample_softmax(ctx, candidates);
+        for (size_t i = 0; i < 5; ++i) {
+            printf("Token[%zu] = %f\n", i, candidates->data[i].p);
+        }
+    } else {
+        // Print message indicating skipping of the smoothing
+        printf("--------\nSkipping smoothing as smoothing_factor is 0.\n--------");
+    }
+
+    // Update timing in context if ctx is available
     if (ctx) {
         ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
     }
 }
-
 
 void llama_sample_temperature(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
     llama_sample_temp(ctx, candidates_p, temp);
