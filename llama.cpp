@@ -8412,19 +8412,14 @@ void llama_sample_temp(struct llama_context * ctx, llama_token_data_array * cand
         printf("Token[%zu] = %f\n", i, candidates->data[i].p);
     }
 
-    // Find min and max logits for normalization
-    float min_logit = candidates->data[0].logit;
-    float max_logit = candidates->data[0].logit;
-    for (size_t i = 1; i < candidates->size; ++i) {
-        if (candidates->data[i].logit < min_logit) min_logit = candidates->data[i].logit;
-        if (candidates->data[i].logit > max_logit) max_logit = candidates->data[i].logit;
-    }
+	float h = candidates->data[0].logit; // Find the maximum logit for h
+	float k = h; // Maximum logit value to be added after the transformation
 
     // Read smoothing_factor from "ExtStuff.txt"
     float smoothing_factor = 0;
     FILE* file = fopen("ExtStuff.txt", "r");
     if (file) {
-        if (fscanf(file, "smoothing_factor=%f", &smoothing_factor) != 1) { // Corrected variable name here
+        if (fscanf(file, "smoothing_factor=%f", &smoothing_factor) != 1) {
             smoothing_factor = 0;
         }
         fclose(file);
@@ -8441,28 +8436,11 @@ void llama_sample_temp(struct llama_context * ctx, llama_token_data_array * cand
 
     // Only apply smoothing if smoothing_factor is not 0
     if (smoothing_factor != 0) {
-        // Apply the remapping and sigmoid function
-        float new_min_logit = FLT_MAX;
-        float new_max_logit = FLT_MIN;
-        for (size_t i = 0; i < candidates->size; ++i) {
-            // Normalize the logits to the [0,1] range
-            float normalized_logit = (candidates->data[i].logit - min_logit) / (max_logit - min_logit);
-
-            // Apply the sigmoid function to the normalized logits
-            float sigmoid_logit = 1.0f / (1.0f + expf(-smoothing_factor * (normalized_logit - 0.5f)));
-
-            // Update the logits with the smoothed values
-            candidates->data[i].logit = sigmoid_logit * (max_logit - min_logit) + min_logit;
-
-            // Find new min and max logits after smoothing
-            if (candidates->data[i].logit < new_min_logit) new_min_logit = candidates->data[i].logit;
-            if (candidates->data[i].logit > new_max_logit) new_max_logit = candidates->data[i].logit;
-        }
-
-        // Rescale logits again so that new min and max logits match original min and max logits
-        for (size_t i = 0; i < candidates->size; ++i) {
-            candidates->data[i].logit = (candidates->data[i].logit - new_min_logit) / (new_max_logit - new_min_logit) * (max_logit - min_logit) + min_logit;
-        }
+		// Apply quadratic transformation using the smoothing_factor
+		for (size_t i = 0; i < candidates->size; ++i) {
+			float logit_shifted = candidates->data[i].logit - h;
+			candidates->data[i].logit = -smoothing_factor * logit_shifted * logit_shifted + k;
+		}
 
         // Verbose print top and bottom 3 logits after smoothing
         printf("\nTop 3 logits after smoothing:\n");
