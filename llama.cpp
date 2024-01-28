@@ -8581,18 +8581,137 @@ void llama_sample_entropy(struct llama_context * ctx, llama_token_data_array * c
     }
 }
 
-void llama_sample_temp(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
+void llama_sample_temp(struct llama_context * ctx, llama_token_data_array * candidates, float temp) {
+    // Get current time
     const int64_t t_start_sample_us = ggml_time_us();
 
-    for (size_t i = 0; i < candidates_p->size; ++i) {
-        candidates_p->data[i].logit /= temp;
+    // Apply temperature scaling
+    for (size_t i = 0; i < candidates->size; ++i) {
+        candidates->data[i].logit /= temp;
+    }
+    
+    // Read smoothing_factor from "ExtStuff.txt"
+    float smoothing_factor = 0;
+    FILE* file = fopen("ExtStuff.txt", "r");
+    if (file) {
+        if (fscanf(file, "smoothing_factor=%f", &smoothing_factor) != 1) {
+            smoothing_factor = 0;
+        }
+        fclose(file);
+    } else {
+        file = fopen("ExtStuff.txt", "w");
+        if (file) {
+            fprintf(file, "smoothing_factor=0\n");
+            fclose(file);
+        }
     }
 
+    if (smoothing_factor == 0) {
+        return; // yes this is jank and im lazy
+    }
+
+    // Sort logits in descending order
+    if (!candidates->sorted) {
+        auto comp = [](const llama_token_data & a, const llama_token_data & b) {
+            return a.logit > b.logit;
+        };
+        constexpr int   nbuckets     = 128;
+        constexpr float bucket_low   = -10.0f;
+        constexpr float bucket_high  =  10.0f;
+        constexpr float bucket_scale = nbuckets/(bucket_high - bucket_low);
+        constexpr float bucker_inter = -bucket_low * bucket_scale;
+
+        std::vector<int> bucket_idx(candidates->size);
+        std::vector<int> histo(nbuckets, 0);
+
+        for (int i = 0; i < (int)candidates->size; ++i) {
+            const float val = candidates->data[i].logit;
+            int ib = int(bucket_scale * val + bucker_inter);
+            ib = std::max(0, std::min(nbuckets-1, ib));
+            bucket_idx[i] = ib;
+            ++histo[ib];
+        }
+        std::vector<llama_token_data> tmp_tokens(candidates->size);
+        auto ptr = tmp_tokens.data();
+        std::vector<llama_token_data*> bucket_ptrs;
+        bucket_ptrs.reserve(nbuckets);
+        for (int j = nbuckets - 1; j >= 0; --j) {
+            bucket_ptrs.push_back(ptr);
+            ptr += histo[j];
+        }
+        for (int i = 0; i < (int)candidates->size; ++i) {
+            int j = bucket_idx[i];
+            if (j >= 0) {
+                *bucket_ptrs[nbuckets-1-j]++ = candidates->data[i];
+            }
+        }
+        ptr = tmp_tokens.data();
+        for (int j = nbuckets-1; j >= 0; --j) {
+            std::sort(ptr, ptr + histo[j], comp);
+            ptr += histo[j];
+        }
+        std::memcpy(candidates->data, tmp_tokens.data(), candidates->size*sizeof(llama_token_data));
+
+        candidates->sorted = true;
+    }
+
+	float h = candidates->data[0].logit; // Find the maximum logit for h
+	float k = h; // Maximum logit value to be added after the transformation
+
+    // Print top and bottom 3 logits before normalization and smoothing
+    printf("Top 3 logits before normalization and smoothing:\n");
+    for (size_t i = 0; i < 3; ++i) {
+        printf("Logit[%zu] = %f\n", i, candidates->data[i].logit);
+    }
+    printf("Bottom 3 logits before normalization and smoothing:\n");
+    for (size_t i = candidates->size - 3; i < candidates->size; ++i) {
+        printf("Logit[%zu] = %f\n", i, candidates->data[i].logit);
+    }
+
+    // Print top 5 tokens' softmax probabilities before smoothing
+    printf("Top 5 tokens' softmax probabilities before smoothing:\n");
+    llama_sample_softmax(ctx, candidates);
+    for (size_t i = 0; i < 5; ++i) {
+        printf("Token[%zu] = %f\n", i, candidates->data[i].p);
+    }
+
+    // Verbose print the smoothing_factor read
+    printf("Read smoothing_factor: %f\n", smoothing_factor);
+
+    // Only apply smoothing if smoothing_factor is not 0
+    if (smoothing_factor != 0) {
+		// Apply quadratic transformation using the smoothing_factor
+		for (size_t i = 0; i < candidates->size; ++i) {
+			float logit_shifted = candidates->data[i].logit - h;
+			candidates->data[i].logit = -smoothing_factor * logit_shifted * logit_shifted + k;
+		}
+
+        // Verbose print top and bottom 3 logits after smoothing
+        printf("\nTop 3 logits after smoothing:\n");
+        for (size_t i = 0; i < 3; ++i) {
+            printf("Logit[%zu] = %f\n", i, candidates->data[i].logit);
+        }
+        printf("Bottom 3 logits after smoothing:\n");
+        for (size_t i = candidates->size - 3; i < candidates->size; ++i) {
+            printf("Logit[%zu] = %f\n", i, candidates->data[i].logit);
+        }
+
+        // Print top 5 tokens' softmax probabilities after smoothing
+        printf("Top 5 tokens' softmax probabilities after smoothing:\n");
+        llama_sample_softmax(ctx, candidates);
+        for (size_t i = 0; i < 5; ++i) {
+            printf("Token[%zu] = %f\n", i, candidates->data[i].p);
+        }
+    } else {
+        // Print message indicating skipping of the smoothing
+        printf("--------\nSkipping smoothing as smoothing_factor is 0.\n--------");
+    }
+
+    // Update timing in context if ctx is available
     if (ctx) {
         ctx->t_sample_us += ggml_time_us() - t_start_sample_us;
     }
 }
-
 
 void llama_sample_temperature(struct llama_context * ctx, llama_token_data_array * candidates_p, float temp) {
     llama_sample_temp(ctx, candidates_p, temp);
