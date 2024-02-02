@@ -456,17 +456,17 @@ static results_perplexity perplexity(llama_context * ctx, const gpt_params & par
     const bool add_bos = llama_should_add_bos_token(llama_get_model(ctx));
     const int n_ctx = llama_n_ctx(ctx);
 
-    std::ofstream logits_stream;
-    if (!params.logits_file.empty()) {
-        logits_stream.open(params.logits_file.c_str());
-        if (!logits_stream.is_open()) {
-            fprintf(stderr, "%s: failed to open %s for writing\n", __func__, params.logits_file.c_str());
-            return {};
-        }
-        fprintf(stderr, "%s: saving all logits to %s\n", __func__, params.logits_file.c_str());
-        logits_stream.write("_logits_", 8);
-        logits_stream.write((const char *)&n_ctx, sizeof(n_ctx));
-    }
+	std::ofstream logits_stream;
+	if (!params.logits_file.empty()) {
+		logits_stream.open(params.logits_file.c_str(), std::ios::binary);
+		if (!logits_stream.is_open()) {
+			fprintf(stderr, "%s: failed to open %s for writing\n", __func__, params.logits_file.c_str());
+			return {};
+		}
+		fprintf(stderr, "%s: saving all logits to %s\n", __func__, params.logits_file.c_str());
+		logits_stream.write("_logits_", 8);
+		logits_stream.write(reinterpret_cast<const char *>(&n_ctx), sizeof(n_ctx));
+	}
 
     auto tim1 = std::chrono::high_resolution_clock::now();
     fprintf(stderr, "%s: tokenizing the input ..\n", __func__);
