@@ -16900,9 +16900,7 @@ static void ggml_graph_compute_thread_sync_node(int * node_n, struct ggml_comput
     const int last_node_n = * node_n;
 
     while (true) {
-        if (do_yield) {
-            sched_yield();
-        }
+        sched_yield();
 
         * node_n = atomic_load(&state->shared->node_n);
         if (* node_n != last_node_n) break;
@@ -16914,9 +16912,7 @@ static void ggml_graph_compute_thread_sync_task(int * task_phase, struct ggml_co
     const int last_task_phase = * task_phase;
 
     while (true) {
-        if (do_yield) {
-            sched_yield();
-        }
+        sched_yield();
 
         * task_phase = atomic_load(&state->shared->node_task);
         if (* task_phase != last_task_phase) break;
@@ -17042,7 +17038,7 @@ static thread_ret_t ggml_graph_compute_thread(void * data) {
             //       since it is not clear what is the best approach, it should potentially become user-configurable
             //       ref: https://github.com/ggerganov/ggml/issues/291
             // UPD:  adding the do_yield flag seems to resolve the issue universally
-            const bool do_yield = node_n < 0 || cgraph->nodes[node_n]->op == GGML_OP_MUL_MAT;
+            const bool do_yield = true;
             ggml_graph_compute_thread_sync_task(&task_phase, state, do_yield);
         }
 
